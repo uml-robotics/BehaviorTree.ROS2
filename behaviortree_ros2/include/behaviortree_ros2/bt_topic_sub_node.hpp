@@ -52,7 +52,7 @@ class RosTopicSubNode : public BT::ConditionNode
  protected: 
   struct SubscriberInstance
   {
-    void init(std::shared_ptr<rclcpp::Node> node, const std::string& topic_name)
+    void init(std::shared_ptr<rclcpp::Node> node, const std::string& topic_name, const rclcpp::QoS& qos_profile)
     {
       // create a callback group for this particular instance
       callback_group = 
@@ -68,7 +68,7 @@ class RosTopicSubNode : public BT::ConditionNode
       {
         broadcaster(msg);
       };
-      subscriber =  node->create_subscription<TopicT>(topic_name, 1, callback, option);
+      subscriber =  node->create_subscription<TopicT>(topic_name, qos_profile, callback, option);
     }
 
     std::shared_ptr<Subscriber> subscriber;
@@ -98,6 +98,7 @@ class RosTopicSubNode : public BT::ConditionNode
   std::string topic_name_;
   boost::signals2::connection signal_connection_;
   std::string subscriber_key_;
+  rclcpp::QoS qos_profile_;
 
   rclcpp::Logger logger()
   {
@@ -175,7 +176,7 @@ class RosTopicSubNode : public BT::ConditionNode
 
 private:
 
-  bool createSubscriber(const std::string& topic_name);
+  bool createSubscriber(const std::string& topic_name, const rclcpp::QoS& qos_profile);
 };
 
 //----------------------------------------------------------------
@@ -187,7 +188,7 @@ template<class T> inline
                                       const NodeConfig &conf,
                                       const RosNodeParams& params)
     : BT::ConditionNode(instance_name, conf),
-      node_(params.nh)
+      node_(params.nh), qos_profile_(params.qos_profile)
 { 
   // check port remapping
   auto portIt = config().input_ports.find("topic_name");
@@ -202,7 +203,7 @@ template<class T> inline
           "Both [topic_name] in the InputPort and the RosNodeParams are empty.");
       }
       else {
-        createSubscriber(params.default_port_value);
+        createSubscriber(params.default_port_value, params.qos_profile);
       }
     }
     else if(!isBlackboardPointer(bb_topic_name))
@@ -210,7 +211,7 @@ template<class T> inline
       // If the content of the port "topic_name" is not
       // a pointer to the blackboard, but a static string, we can
       // create the client in the constructor.
-      createSubscriber(bb_topic_name);
+      createSubscriber(bb_topic_name, params.qos_profile);
     }
     else {
       // do nothing
@@ -223,13 +224,13 @@ template<class T> inline
         "Both [topic_name] in the InputPort and the RosNodeParams are empty.");
     }
     else {
-      createSubscriber(params.default_port_value);
+      createSubscriber(params.default_port_value, params.qos_profile);
     }
   }
 }
 
 template<class T> inline
-  bool RosTopicSubNode<T>::createSubscriber(const std::string& topic_name)
+  bool RosTopicSubNode<T>::createSubscriber(const std::string& topic_name, const rclcpp::QoS& qos_profile)
 {
   if(topic_name.empty())
   {
@@ -250,7 +251,7 @@ template<class T> inline
   {
     it = registry.insert( {subscriber_key_, std::make_shared<SubscriberInstance>() }).first;
     sub_instance_ = it->second;
-    sub_instance_->init(node_, topic_name);
+    sub_instance_->init(node_, topic_name, qos_profile);
 
     RCLCPP_INFO(logger(), 
       "Node [%s] created Subscriber to topic [%s]",
@@ -266,6 +267,7 @@ template<class T> inline
     [this](const std::shared_ptr<T> msg) { last_msg_ = msg; } );
 
   topic_name_ = topic_name;
+
   return true;
 }
 
@@ -280,7 +282,7 @@ template<class T> inline
   {
     std::string topic_name;
     getInput("topic_name", topic_name);
-    createSubscriber(topic_name); 
+    createSubscriber(topic_name, qos_profile_); 
   }
 
   auto CheckStatus = [](NodeStatus status)
