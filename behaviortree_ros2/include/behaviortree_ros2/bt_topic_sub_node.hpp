@@ -273,9 +273,9 @@ template<class T> inline
   }
 
   // Check if there was a message received before the creation of this subscriber action
-  if (sub_instance_.last_msg)
+  if (sub_instance_->last_msg)
   {
-    last_msg_ = sub_instance_.last_msg;
+    last_msg_ = sub_instance_->last_msg;
   }
 
   // add "this" as received of the broadcaster
