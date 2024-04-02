@@ -66,6 +66,7 @@ class RosTopicSubNode : public BT::ConditionNode
     // The callback will broadcast to all the instances of RosTopicSubNode<T>
       auto callback = [this](const std::shared_ptr<TopicT> msg) 
       {
+        last_msg = msg;
         broadcaster(msg);
       };
       subscriber =  node->create_subscription<TopicT>(topic_name, 1, callback, option);
@@ -75,6 +76,7 @@ class RosTopicSubNode : public BT::ConditionNode
     rclcpp::CallbackGroup::SharedPtr callback_group;
     rclcpp::executors::SingleThreadedExecutor callback_group_executor;
     boost::signals2::signal<void (const std::shared_ptr<TopicT>)> broadcaster;
+    std::shared_ptr<TopicT> last_msg = nullptr;
 
 
   };
@@ -270,6 +272,11 @@ template<class T> inline
     sub_instance_ = it->second;
   }
 
+  // Check if there was a message received before the creation of this subscriber action
+  if (sub_instance_.last_msg)
+  {
+    last_msg_ = sub_instance_.last_msg;
+  }
 
   // add "this" as received of the broadcaster
   signal_connection_ = sub_instance_->broadcaster.connect(
@@ -286,11 +293,17 @@ template<class T> inline
   // First, check if the subscriber_ is valid and that the name of the
   // topic_name in the port didn't change.
   // otherwise, create a new subscriber
+  std::string topic_name;
+  getInput("topic_name", topic_name);
+
   if(!sub_instance_)
   {
-    std::string topic_name;
-    getInput("topic_name", topic_name);
     createSubscriber(topic_name); 
+  }
+  else if(topic_name_ != topic_name)
+  {
+    sub_instance_.reset();
+    createSubscriber(topic_name_);
   }
 
   auto CheckStatus = [](NodeStatus status)
