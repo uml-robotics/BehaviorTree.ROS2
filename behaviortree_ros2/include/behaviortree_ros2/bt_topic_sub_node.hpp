@@ -303,7 +303,7 @@ template<class T> inline
   else if(topic_name_ != topic_name)
   {
     sub_instance_.reset();
-    createSubscriber(topic_name_);
+    createSubscriber(topic_name);
   }
 
   auto CheckStatus = [](NodeStatus status)
