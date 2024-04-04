@@ -242,6 +242,10 @@ template<class T> inline
   // First, check if the service_client_ is valid and that the name of the
   // service_name in the port didn't change.
   // otherwise, create a new client
+
+  //Temporary workaround for threading issues - Greg
+  rclcpp::spin_some(node_);
+
   if(!service_client_ || (status() == NodeStatus::IDLE && service_name_may_change_))
   {
     std::string service_name;
