@@ -76,7 +76,7 @@ class RosTopicSubNode : public BT::ConditionNode
     rclcpp::CallbackGroup::SharedPtr callback_group;
     rclcpp::executors::SingleThreadedExecutor callback_group_executor;
     boost::signals2::signal<void (const std::shared_ptr<TopicT>)> broadcaster;
-    std::shared_ptr<TopicT> last_msg = nullptr;
+    std::shared_ptr<TopicT> last_msg;
 
 
   };
@@ -319,7 +319,7 @@ template<class T> inline
   auto status = CheckStatus (onTick(last_msg_));
   if (clearProcessedMessage())
   {
-    last_msg_ = nullptr;
+    last_msg_.reset();
   }
   return status;
 }
