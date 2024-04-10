@@ -433,6 +433,12 @@ template<class T> inline
 template<class T> inline
   void RosActionNode<T>::cancelGoal()
 {
+  if (!goal_handle_)
+  {
+    RCLCPP_WARN( node_->get_logger(), "cancelGoal called on an empty goal_handle");
+    return;
+  }
+
   auto future_result = action_client_->async_get_result(goal_handle_);
   auto future_cancel = action_client_->async_cancel_goal(goal_handle_);
 
