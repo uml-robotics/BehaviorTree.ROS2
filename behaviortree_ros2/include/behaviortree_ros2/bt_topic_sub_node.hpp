@@ -175,15 +175,15 @@ class RosTopicSubNode : public BT::ConditionNode
    */
   virtual NodeStatus onTick(const std::shared_ptr<TopicT>& last_msg) = 0;
 
-  /** Clear the message that has been processed. If returns true and no new message is 
-   * received, before next call there will be no message to process. If returns false,
+  /** latch the message that has been processed. If returns false and no new message is 
+   * received, before next call there will be no message to process. If returns true,
    * the next call will process the same message again, if no new message received.
    * 
    * This can be equated with latched vs non-latched topics in ros 1.
    * 
-   * @return true will clear the message after ticking/processing.
+   * @return false will clear the message after ticking/processing.
    */
-  virtual bool clearProcessedMessage() { return true; }
+  virtual bool latchLastMessage() const { return false; } 
 
 private:
 
@@ -317,7 +317,7 @@ template<class T> inline
   };
   sub_instance_->callback_group_executor.spin_some();
   auto status = CheckStatus (onTick(last_msg_));
-  if (clearProcessedMessage())
+  if (!latchLastMessage())
   {
     last_msg_.reset();
   }
