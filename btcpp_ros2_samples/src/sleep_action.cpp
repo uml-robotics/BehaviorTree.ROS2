@@ -28,5 +28,5 @@ void SleepAction::onHalt()
 }
 
 // Plugin registration.
-// The class SleepAction will self register with name  "Sleep".
-CreateRosNodePlugin(SleepAction, "Sleep");
+// The class SleepAction will self register with name  "SleepAction".
+CreateRosNodePlugin(SleepAction, "SleepAction");

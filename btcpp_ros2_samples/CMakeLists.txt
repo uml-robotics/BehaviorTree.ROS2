@@ -57,6 +57,15 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
   )
 
+######################################################
+# INSTALL plugins for other packages to load
+
+install(TARGETS
+  sleep_plugin
+  LIBRARY DESTINATION share/${PROJECT_NAME}/bt_plugins
+  ARCHIVE DESTINATION share/${PROJECT_NAME}/bt_plugins
+  RUNTIME DESTINATION share/${PROJECT_NAME}/bt_plugins
+  )
 
 ament_export_dependencies(behaviortree_ros2 btcpp_ros2_interfaces)
 
