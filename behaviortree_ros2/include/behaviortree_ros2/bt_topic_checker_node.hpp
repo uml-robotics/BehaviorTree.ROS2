@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Copied from bt_topic_sub_node.hpp - TODO do the inheritence better - Greg
+
 #pragma once
 
 #include <memory>
