@@ -42,4 +42,4 @@ struct RosNodeParams
   std::chrono::milliseconds wait_for_server_timeout = std::chrono::milliseconds(500);
 };
 
-}
+}  // namespace BT

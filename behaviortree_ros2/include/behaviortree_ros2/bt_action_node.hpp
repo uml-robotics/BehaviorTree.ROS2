@@ -40,14 +40,20 @@ enum ActionNodeErrorCode
 
 inline const char* toStr(const ActionNodeErrorCode& err)
 {
-  switch (err)
+  switch(err)
   {
-    case SERVER_UNREACHABLE: return "SERVER_UNREACHABLE";
-    case SEND_GOAL_TIMEOUT: return "SEND_GOAL_TIMEOUT";
-    case GOAL_REJECTED_BY_SERVER: return "GOAL_REJECTED_BY_SERVER";
-    case ACTION_ABORTED: return "ACTION_ABORTED";
-    case ACTION_CANCELLED: return "ACTION_CANCELLED";
-    case INVALID_GOAL: return "INVALID_GOAL";
+    case SERVER_UNREACHABLE:
+      return "SERVER_UNREACHABLE";
+    case SEND_GOAL_TIMEOUT:
+      return "SEND_GOAL_TIMEOUT";
+    case GOAL_REJECTED_BY_SERVER:
+      return "GOAL_REJECTED_BY_SERVER";
+    case ACTION_ABORTED:
+      return "ACTION_ABORTED";
+    case ACTION_CANCELLED:
+      return "ACTION_CANCELLED";
+    case INVALID_GOAL:
+      return "INVALID_GOAL";
   }
   return nullptr;
 }
@@ -70,10 +76,9 @@ inline const char* toStr(const ActionNodeErrorCode& err)
  * 1. If a value is passes in the InputPort "action_name", use that
  * 2. Otherwise, use the value in RosNodeParams::default_port_value
  */
-template<class ActionT>
+template <class ActionT>
 class RosActionNode : public BT::ActionNodeBase
 {
-
 public:
   // Type definitions
   using ActionType = ActionT;
@@ -89,8 +94,7 @@ public:
    *    factory.registerNodeType<>(node_name, params);
    *
    */
-  explicit RosActionNode(const std::string & instance_name,
-                         const BT::NodeConfig& conf,
+  explicit RosActionNode(const std::string& instance_name, const BT::NodeConfig& conf,
                          const RosNodeParams& params);
 
   virtual ~RosActionNode() = default;
@@ -104,9 +108,8 @@ public:
    */
   static PortsList providedBasicPorts(PortsList addition)
   {
-    PortsList basic = {
-      InputPort<std::string>("action_name", "__default__placeholder__", "Action server name")
-    };
+    PortsList basic = { InputPort<std::string>("action_name", "__default__placeholder__",
+                                               "Action server name") };
     basic.insert(addition.begin(), addition.end());
     return basic;
   }
@@ -122,7 +125,8 @@ public:
 
   /// @brief  Callback executed when the node is halted. Note that cancelGoal()
   /// is done automatically.
-  virtual void onHalt() {}
+  virtual void onHalt()
+  {}
 
   /** setGoal s a callback that allows the user to set
    *  the goal message (ActionT::Goal).
@@ -159,14 +163,12 @@ public:
   /// Method used to send a request to the Action server to cancel the current goal
   void cancelGoal();
 
-
   /// The default halt() implementation will call cancelGoal if necessary.
   void halt() override final;
 
   NodeStatus tick() override final;
 
 protected:
-
   std::shared_ptr<rclcpp::Node> node_;
   std::string prev_action_name_;
   bool action_name_may_change_ = false;
@@ -174,7 +176,6 @@ protected:
   const std::chrono::milliseconds wait_for_server_timeout_;
 
 private:
-
   ActionClientPtr action_client_;
   rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::executors::SingleThreadedExecutor callback_group_executor_;
@@ -187,21 +188,21 @@ private:
   bool goal_received_;
   WrappedResult result_;
 
-  bool createClient(const std::string &action_name);
+  bool createClient(const std::string& action_name);
 };
 
 //----------------------------------------------------------------
 //---------------------- DEFINITIONS -----------------------------
 //----------------------------------------------------------------
 
-template<class T> inline
-  RosActionNode<T>::RosActionNode(const std::string & instance_name,
-                                  const NodeConfig &conf,
-                                  const RosNodeParams &params):
-  BT::ActionNodeBase(instance_name, conf),
-  node_(params.nh),
-  server_timeout_(params.server_timeout),
-  wait_for_server_timeout_(params.wait_for_server_timeout)
+template <class T>
+inline RosActionNode<T>::RosActionNode(const std::string& instance_name,
+                                       const NodeConfig& conf,
+                                       const RosNodeParams& params)
+  : BT::ActionNodeBase(instance_name, conf)
+  , node_(params.nh)
+  , server_timeout_(params.server_timeout)
+  , wait_for_server_timeout_(params.wait_for_server_timeout)
 {
   // Three cases:
   // - we use the default action_name in RosNodeParams when port is empty
@@ -216,11 +217,13 @@ template<class T> inline
 
     if(bb_action_name.empty() || bb_action_name == "__default__placeholder__")
     {
-      if(params.default_port_value.empty()) {
-        throw std::logic_error(
-          "Both [action_name] in the InputPort and the RosNodeParams are empty.");
+      if(params.default_port_value.empty())
+      {
+        throw std::logic_error("Both [action_name] in the InputPort and the "
+                               "RosNodeParams are empty.");
       }
-      else {
+      else
+      {
         createClient(params.default_port_value);
       }
     }
@@ -231,33 +234,38 @@ template<class T> inline
       // create the client in the constructor.
       createClient(bb_action_name);
     }
-    else {
+    else
+    {
       action_name_may_change_ = true;
       // createClient will be invoked in the first tick().
     }
   }
-  else {
-
-    if(params.default_port_value.empty()) {
-      throw std::logic_error(
-        "Both [action_name] in the InputPort and the RosNodeParams are empty.");
+  else
+  {
+    if(params.default_port_value.empty())
+    {
+      throw std::logic_error("Both [action_name] in the InputPort and the RosNodeParams "
+                             "are empty.");
     }
-    else {
+    else
+    {
       createClient(params.default_port_value);
     }
   }
 }
 
-template<class T> inline
-  bool RosActionNode<T>::createClient(const std::string& action_name)
+template <class T>
+inline bool RosActionNode<T>::createClient(const std::string& action_name)
 {
   if(action_name.empty())
   {
     throw RuntimeError("action_name is empty");
   }
 
-  callback_group_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  callback_group_executor_.add_callback_group(callback_group_, node_->get_node_base_interface());
+  callback_group_ =
+      node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  callback_group_executor_.add_callback_group(callback_group_,
+                                              node_->get_node_base_interface());
   action_client_ = rclcpp_action::create_client<T>(node_, action_name, callback_group_);
 
   prev_action_name_ = action_name;
@@ -265,14 +273,15 @@ template<class T> inline
   bool found = action_client_->wait_for_action_server(wait_for_server_timeout_);
   if(!found)
   {
-    RCLCPP_ERROR(node_->get_logger(), "%s: Action server with name '%s' is not reachable.",
-                 name().c_str(), prev_action_name_.c_str());
+    RCLCPP_ERROR(node_->get_logger(),
+                 "%s: Action server with name '%s' is not reachable.", name().c_str(),
+                 prev_action_name_.c_str());
   }
   return found;
 }
 
-template<class T> inline
-  NodeStatus RosActionNode<T>::tick()
+template <class T>
+inline NodeStatus RosActionNode<T>::tick()
 {
   // First, check if the action_client_ is valid and that the name of the
   // action_name in the port didn't change.
@@ -288,17 +297,17 @@ template<class T> inline
   }
 
   //------------------------------------------
-  auto CheckStatus = [](NodeStatus status)
-  {
-    if( !isStatusCompleted(status) )
+  auto CheckStatus = [](NodeStatus status) {
+    if(!isStatusCompleted(status))
     {
-      throw std::logic_error("RosActionNode: the callback must return either SUCCESS of FAILURE");
+      throw std::logic_error("RosActionNode: the callback must return either SUCCESS of "
+                             "FAILURE");
     }
     return status;
   };
 
   // first step to be done only at the beginning of the Action
-  if (status() == BT::NodeStatus::IDLE)
+  if(status() == BT::NodeStatus::IDLE)
   {
     setStatus(NodeStatus::RUNNING);
 
@@ -309,77 +318,80 @@ template<class T> inline
 
     Goal goal;
 
-    if( !setGoal(goal) )
+    if(!setGoal(goal))
     {
-      return CheckStatus( onFailure(INVALID_GOAL) );
+      return CheckStatus(onFailure(INVALID_GOAL));
     }
 
     typename ActionClient::SendGoalOptions goal_options;
 
     //--------------------
     goal_options.feedback_callback =
-      [this](typename GoalHandle::SharedPtr,
-             const std::shared_ptr<const Feedback> feedback)
-    {
-      on_feedback_state_change_ = onFeedback(feedback);
-      if( on_feedback_state_change_ == NodeStatus::IDLE)
-      {
-        throw std::logic_error("onFeedback must not return IDLE");
-      }
-      emitWakeUpSignal();
-    };
+        [this](typename GoalHandle::SharedPtr,
+               const std::shared_ptr<const Feedback> feedback) {
+          on_feedback_state_change_ = onFeedback(feedback);
+          if(on_feedback_state_change_ == NodeStatus::IDLE)
+          {
+            throw std::logic_error("onFeedback must not return IDLE");
+          }
+          emitWakeUpSignal();
+        };
     //--------------------
-    goal_options.result_callback =
-      [this](const WrappedResult& result)
-    {
-      if (goal_handle_->get_goal_id() == result.goal_id) {
-        RCLCPP_DEBUG( node_->get_logger(), "result_callback" );
+    goal_options.result_callback = [this](const WrappedResult& result) {
+      if(goal_handle_->get_goal_id() == result.goal_id)
+      {
+        RCLCPP_DEBUG(node_->get_logger(), "result_callback");
         result_ = result;
         emitWakeUpSignal();
       }
     };
     //--------------------
     goal_options.goal_response_callback =
-      [this](typename GoalHandle::SharedPtr const future_handle)
-    {
-      auto goal_handle_ = future_handle.get();
-      if (!goal_handle_)
-      {
-        RCLCPP_ERROR(node_->get_logger(), "Goal was rejected by server");
-      } else {
-        RCLCPP_DEBUG(node_->get_logger(), "Goal accepted by server, waiting for result");
-      }
-    };
+        [this](typename GoalHandle::SharedPtr const future_handle) {
+          auto goal_handle_ = future_handle.get();
+          if(!goal_handle_)
+          {
+            RCLCPP_ERROR(node_->get_logger(), "Goal was rejected by server");
+          }
+          else
+          {
+            RCLCPP_DEBUG(node_->get_logger(), "Goal accepted by server, waiting for "
+                                              "result");
+          }
+        };
     //--------------------
 
     // Check if server is ready
     if(!action_client_->action_server_is_ready())
       return onFailure(SERVER_UNREACHABLE);
 
-    future_goal_handle_ = action_client_->async_send_goal( goal, goal_options );
+    future_goal_handle_ = action_client_->async_send_goal(goal, goal_options);
     time_goal_sent_ = node_->now();
 
     return NodeStatus::RUNNING;
   }
 
-  if (status() == NodeStatus::RUNNING)
+  if(status() == NodeStatus::RUNNING)
   {
     callback_group_executor_.spin_some();
 
     // FIRST case: check if the goal request has a timeout
-    if( !goal_received_ )
+    if(!goal_received_)
     {
       auto nodelay = std::chrono::milliseconds(0);
-      auto timeout = rclcpp::Duration::from_seconds( double(server_timeout_.count()) / 1000);
+      auto timeout =
+          rclcpp::Duration::from_seconds(double(server_timeout_.count()) / 1000);
 
-      auto ret = callback_group_executor_.spin_until_future_complete(future_goal_handle_, nodelay);
-      if (ret != rclcpp::FutureReturnCode::SUCCESS)
+      auto ret = callback_group_executor_.spin_until_future_complete(future_goal_handle_,
+                                                                     nodelay);
+      if(ret != rclcpp::FutureReturnCode::SUCCESS)
       {
-        if( (node_->now() - time_goal_sent_) > timeout )
+        if((node_->now() - time_goal_sent_) > timeout)
         {
-          return CheckStatus( onFailure(SEND_GOAL_TIMEOUT) );
+          return CheckStatus(onFailure(SEND_GOAL_TIMEOUT));
         }
-        else{
+        else
+        {
           return NodeStatus::RUNNING;
         }
       }
@@ -389,39 +401,41 @@ template<class T> inline
         goal_handle_ = future_goal_handle_.get();
         future_goal_handle_ = {};
 
-        if (!goal_handle_) {
-          return CheckStatus( onFailure( GOAL_REJECTED_BY_SERVER ) );
+        if(!goal_handle_)
+        {
+          return CheckStatus(onFailure(GOAL_REJECTED_BY_SERVER));
         }
       }
     }
 
     // SECOND case: onFeedback requested a stop
-    if( on_feedback_state_change_ != NodeStatus::RUNNING )
+    if(on_feedback_state_change_ != NodeStatus::RUNNING)
     {
       cancelGoal();
       return on_feedback_state_change_;
     }
     // THIRD case: result received, requested a stop
-    if( result_.code != rclcpp_action::ResultCode::UNKNOWN)
+    if(result_.code != rclcpp_action::ResultCode::UNKNOWN)
     {
-      if( result_.code == rclcpp_action::ResultCode::ABORTED )
+      if(result_.code == rclcpp_action::ResultCode::ABORTED)
       {
-        return CheckStatus( onFailure( ACTION_ABORTED ) );
+        return CheckStatus(onFailure(ACTION_ABORTED));
       }
-      else if( result_.code == rclcpp_action::ResultCode::CANCELED )
+      else if(result_.code == rclcpp_action::ResultCode::CANCELED)
       {
-        return CheckStatus( onFailure( ACTION_CANCELLED ) );
+        return CheckStatus(onFailure(ACTION_CANCELLED));
       }
-      else{
-        return CheckStatus( onResultReceived( result_ ) );
+      else
+      {
+        return CheckStatus(onResultReceived(result_));
       }
     }
   }
   return NodeStatus::RUNNING;
 }
 
-template<class T> inline
-  void RosActionNode<T>::halt()
+template <class T>
+inline void RosActionNode<T>::halt()
 {
   if(status() == BT::NodeStatus::RUNNING)
   {
@@ -430,35 +444,31 @@ template<class T> inline
   }
 }
 
-template<class T> inline
-  void RosActionNode<T>::cancelGoal()
+template <class T>
+inline void RosActionNode<T>::cancelGoal()
 {
-  if (!goal_handle_)
+  if(!goal_handle_)
   {
-    RCLCPP_WARN( node_->get_logger(), "cancelGoal called on an empty goal_handle");
+    RCLCPP_WARN(node_->get_logger(), "cancelGoal called on an empty goal_handle");
     return;
   }
 
   auto future_result = action_client_->async_get_result(goal_handle_);
   auto future_cancel = action_client_->async_cancel_goal(goal_handle_);
 
-  if (callback_group_executor_.spin_until_future_complete(future_cancel, server_timeout_) !=
-      rclcpp::FutureReturnCode::SUCCESS)
+  if(callback_group_executor_.spin_until_future_complete(
+         future_cancel, server_timeout_) != rclcpp::FutureReturnCode::SUCCESS)
   {
-    RCLCPP_ERROR( node_->get_logger(), "Failed to cancel action server for [%s]",
+    RCLCPP_ERROR(node_->get_logger(), "Failed to cancel action server for [%s]",
                  prev_action_name_.c_str());
   }
 
-  if (callback_group_executor_.spin_until_future_complete(future_result, server_timeout_) !=
-      rclcpp::FutureReturnCode::SUCCESS)
+  if(callback_group_executor_.spin_until_future_complete(
+         future_result, server_timeout_) != rclcpp::FutureReturnCode::SUCCESS)
   {
-    RCLCPP_ERROR( node_->get_logger(), "Failed to get result call failed :( for [%s]",
+    RCLCPP_ERROR(node_->get_logger(), "Failed to get result call failed :( for [%s]",
                  prev_action_name_.c_str());
   }
 }
 
-
-
-
 }  // namespace BT
-
