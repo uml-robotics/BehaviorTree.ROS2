@@ -296,14 +296,14 @@ template<class T> inline
   std::string topic_name;
   getInput("topic_name", topic_name);
 
+  if(!topic_name.empty() && topic_name != "__default__placeholder__" && topic_name != topic_name_)
+  {
+    sub_instance_.reset();
+  }
+
   if(!sub_instance_)
   {
     createSubscriber(topic_name); 
-  }
-  else if(topic_name_ != topic_name)
-  {
-    sub_instance_.reset();
-    createSubscriber(topic_name);
   }
 
   auto CheckStatus = [](NodeStatus status)
