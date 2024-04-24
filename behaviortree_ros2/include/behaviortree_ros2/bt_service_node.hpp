@@ -272,7 +272,7 @@ inline bool RosServiceNode<T>::createClient(const std::string& service_name)
 
   auto& registry = getRegistry();
   auto it = registry.find(client_key);
-  if(it == registry.end() || it->second.expired()
+  if(it == registry.end() || it->second.expired())
   {
     srv_instance_ = std::make_shared<ServiceClientInstance>(node_, service_name);
     registry.insert({ client_key, srv_instance_ });
@@ -282,12 +282,11 @@ inline bool RosServiceNode<T>::createClient(const std::string& service_name)
   }
   else
   {
-    auto prev_instance srv_instance_ = it->second.lock();
+    srv_instance_ = it->second.lock();
   }
   service_name_ = service_name;
 
-  bool found =
-      srv_instance_->service_client->wait_for_service(wait_for_service_timeout_);
+  bool found = srv_instance_->service_client->wait_for_service(wait_for_service_timeout_);
   if(!found)
   {
     RCLCPP_ERROR(node_->get_logger(), "%s: Service with name '%s' is not reachable.",
