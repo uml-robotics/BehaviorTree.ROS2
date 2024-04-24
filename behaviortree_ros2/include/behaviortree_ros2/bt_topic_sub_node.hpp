@@ -248,7 +248,7 @@ inline bool RosTopicSubNode<T>::createSubscriber(const std::string& topic_name)
 
   auto& registry = getRegistry();
   auto it = registry.find(subscriber_key_);
-  if(it == registry.end())
+  if(it == registry.end() || it->second.expired())
   {
     sub_instance_ = std::make_shared<SubscriberInstance>(node_, topic_name);
     registry.insert({ subscriber_key_, sub_instance_ });

@@ -74,6 +74,7 @@ class RosServiceNode : public BT::ActionNodeBase
 public:
   // Type definitions
   using ServiceClient = typename rclcpp::Client<ServiceT>;
+  using ServiceClientPtr = std::shared_ptr<ServiceClient>;
   using Request = typename ServiceT::Request;
   using Response = typename ServiceT::Response;
 
@@ -140,17 +141,44 @@ public:
   }
 
 protected:
+  struct ServiceClientInstance
+  {
+    ServiceClientInstance(std::shared_ptr<rclcpp::Node> node,
+                          const std::string& service_name);
+
+    ServiceClientPtr service_client;
+    rclcpp::CallbackGroup::SharedPtr callback_group;
+    rclcpp::executors::SingleThreadedExecutor callback_executor;
+  };
+
+  static std::mutex& getMutex()
+  {
+    static std::mutex action_client_mutex;
+    return action_client_mutex;
+  }
+
+  rclcpp::Logger logger()
+  {
+    return node_->get_logger();
+  }
+
+  using ClientsRegistry =
+      std::unordered_map<std::string, std::weak_ptr<ServiceClientInstance>>;
+  // contains the fully-qualified name of the node and the name of the client
+  static ClientsRegistry& getRegistry()
+  {
+    static ClientsRegistry clients_registry;
+    return clients_registry;
+  }
+
   std::shared_ptr<rclcpp::Node> node_;
-  std::string prev_service_name_;
+  std::string service_name_;
   bool service_name_may_change_ = false;
   const std::chrono::milliseconds service_timeout_;
   const std::chrono::milliseconds wait_for_service_timeout_;
 
 private:
-  typename std::shared_ptr<ServiceClient> service_client_;
-  rclcpp::CallbackGroup::SharedPtr callback_group_;
-  rclcpp::executors::SingleThreadedExecutor callback_group_executor_;
-
+  std::shared_ptr<ServiceClientInstance> srv_instance_;
   std::shared_future<typename Response::SharedPtr> future_response_;
 
   rclcpp::Time time_request_sent_;
@@ -164,6 +192,18 @@ private:
 //----------------------------------------------------------------
 //---------------------- DEFINITIONS -----------------------------
 //----------------------------------------------------------------
+
+template <class T>
+inline RosServiceNode<T>::ServiceClientInstance::ServiceClientInstance(
+    std::shared_ptr<rclcpp::Node> node, const std::string& service_name)
+{
+  callback_group =
+      node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  callback_executor.add_callback_group(callback_group, node->get_node_base_interface());
+
+  service_client = node->create_client<T>(service_name, rmw_qos_profile_services_default,
+                                          callback_group);
+}
 
 template <class T>
 inline RosServiceNode<T>::RosServiceNode(const std::string& instance_name,
@@ -227,19 +267,31 @@ inline bool RosServiceNode<T>::createClient(const std::string& service_name)
     throw RuntimeError("service_name is empty");
   }
 
-  callback_group_ =
-      node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  callback_group_executor_.add_callback_group(callback_group_,
-                                              node_->get_node_base_interface());
-  service_client_ = node_->create_client<T>(
-      service_name, rmw_qos_profile_services_default, callback_group_);
-  prev_service_name_ = service_name;
+  std::unique_lock lk(getMutex());
+  auto client_key = std::string(node_->get_fully_qualified_name()) + "/" + service_name;
 
-  bool found = service_client_->wait_for_service(wait_for_service_timeout_);
+  auto& registry = getRegistry();
+  auto it = registry.find(client_key);
+  if(it == registry.end() || it->second.expired()
+  {
+    srv_instance_ = std::make_shared<ServiceClientInstance>(node_, service_name);
+    registry.insert({ client_key, srv_instance_ });
+
+    RCLCPP_INFO(logger(), "Node [%s] created service client [%s]", name().c_str(),
+                service_name.c_str());
+  }
+  else
+  {
+    auto prev_instance srv_instance_ = it->second.lock();
+  }
+  service_name_ = service_name;
+
+  bool found =
+      srv_instance_->service_client->wait_for_service(wait_for_service_timeout_);
   if(!found)
   {
     RCLCPP_ERROR(node_->get_logger(), "%s: Service with name '%s' is not reachable.",
-                 name().c_str(), prev_service_name_.c_str());
+                 name().c_str(), service_name_.c_str());
   }
   return found;
 }
@@ -247,14 +299,20 @@ inline bool RosServiceNode<T>::createClient(const std::string& service_name)
 template <class T>
 inline NodeStatus RosServiceNode<T>::tick()
 {
-  // First, check if the service_client_ is valid and that the name of the
+  if(!rclcpp::ok())
+  {
+    halt();
+    return NodeStatus::FAILURE;
+  }
+
+  // First, check if the service_client is valid and that the name of the
   // service_name in the port didn't change.
   // otherwise, create a new client
-  if(!service_client_ || (status() == NodeStatus::IDLE && service_name_may_change_))
+  if(!srv_instance_ || (status() == NodeStatus::IDLE && service_name_may_change_))
   {
     std::string service_name;
     getInput("service_name", service_name);
-    if(prev_service_name_ != service_name)
+    if(service_name_ != service_name)
     {
       createClient(service_name);
     }
@@ -287,10 +345,12 @@ inline NodeStatus RosServiceNode<T>::tick()
     }
 
     // Check if server is ready
-    if(!service_client_->service_is_ready())
+    if(!srv_instance_->service_client->service_is_ready())
+    {
       return onFailure(SERVICE_UNREACHABLE);
+    }
 
-    future_response_ = service_client_->async_send_request(request).share();
+    future_response_ = srv_instance_->service_client->async_send_request(request).share();
     time_request_sent_ = node_->now();
 
     return NodeStatus::RUNNING;
@@ -298,7 +358,7 @@ inline NodeStatus RosServiceNode<T>::tick()
 
   if(status() == NodeStatus::RUNNING)
   {
-    callback_group_executor_.spin_some();
+    srv_instance_->callback_executor.spin_some();
 
     // FIRST case: check if the goal request has a timeout
     if(!response_received_)
@@ -307,8 +367,8 @@ inline NodeStatus RosServiceNode<T>::tick()
       auto const timeout =
           rclcpp::Duration::from_seconds(double(service_timeout_.count()) / 1000);
 
-      auto ret =
-          callback_group_executor_.spin_until_future_complete(future_response_, nodelay);
+      auto ret = srv_instance_->callback_executor.spin_until_future_complete(
+          future_response_, nodelay);
 
       if(ret != rclcpp::FutureReturnCode::SUCCESS)
       {
