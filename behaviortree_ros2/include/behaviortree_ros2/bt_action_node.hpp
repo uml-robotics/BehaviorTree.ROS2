@@ -169,17 +169,46 @@ public:
   NodeStatus tick() override final;
 
 protected:
+  struct ActionClientInstance
+  {
+    ActionClientInstance(std::shared_ptr<rclcpp::Node> node,
+                         const std::string& action_name);
+
+    ActionClientPtr action_client;
+    rclcpp::CallbackGroup::SharedPtr callback_group;
+    rclcpp::executors::SingleThreadedExecutor callback_executor;
+    typename ActionClient::SendGoalOptions goal_options;
+  };
+
+  static std::mutex& getMutex()
+  {
+    static std::mutex action_client_mutex;
+    return action_client_mutex;
+  }
+
+  rclcpp::Logger logger()
+  {
+    return node_->get_logger();
+  }
+
+  using ClientsRegistry =
+      std::unordered_map<std::string, std::weak_ptr<ActionClientInstance>>;
+  // contains the fully-qualified name of the node and the name of the client
+  static ClientsRegistry& getRegistry()
+  {
+    static ClientsRegistry action_clients_registry;
+    return action_clients_registry;
+  }
+
   std::shared_ptr<rclcpp::Node> node_;
-  std::string prev_action_name_;
+  std::shared_ptr<ActionClientInstance> client_instance_;
+  std::string action_name_;
   bool action_name_may_change_ = false;
   const std::chrono::milliseconds server_timeout_;
   const std::chrono::milliseconds wait_for_server_timeout_;
+  std::string action_client_key_;
 
 private:
-  ActionClientPtr action_client_;
-  rclcpp::CallbackGroup::SharedPtr callback_group_;
-  rclcpp::executors::SingleThreadedExecutor callback_group_executor_;
-
   std::shared_future<typename GoalHandle::SharedPtr> future_goal_handle_;
   typename GoalHandle::SharedPtr goal_handle_;
 
@@ -194,6 +223,16 @@ private:
 //----------------------------------------------------------------
 //---------------------- DEFINITIONS -----------------------------
 //----------------------------------------------------------------
+
+template <class T>
+RosActionNode<T>::ActionClientInstance::ActionClientInstance(
+    std::shared_ptr<rclcpp::Node> node, const std::string& action_name)
+{
+  callback_group =
+      node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  callback_executor.add_callback_group(callback_group, node->get_node_base_interface());
+  action_client = rclcpp_action::create_client<T>(node, action_name, callback_group);
+}
 
 template <class T>
 inline RosActionNode<T>::RosActionNode(const std::string& instance_name,
@@ -262,20 +301,29 @@ inline bool RosActionNode<T>::createClient(const std::string& action_name)
     throw RuntimeError("action_name is empty");
   }
 
-  callback_group_ =
-      node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
-  callback_group_executor_.add_callback_group(callback_group_,
-                                              node_->get_node_base_interface());
-  action_client_ = rclcpp_action::create_client<T>(node_, action_name, callback_group_);
+  std::unique_lock lk(getMutex());
+  action_client_key_ = std::string(node_->get_fully_qualified_name()) + "/" + action_name;
 
-  prev_action_name_ = action_name;
+  auto& registry = getRegistry();
+  auto it = registry.find(action_client_key_);
+  if(it == registry.end())
+  {
+    client_instance_ = std::make_shared<ActionClientInstance>(node_, action_name);
+    registry.insert({ action_client_key_, client_instance_ });
+  }
+  else
+  {
+    client_instance_ = it->second.lock();
+  }
 
-  bool found = action_client_->wait_for_action_server(wait_for_server_timeout_);
+  action_name_ = action_name;
+
+  bool found =
+      client_instance_->action_client->wait_for_action_server(wait_for_server_timeout_);
   if(!found)
   {
-    RCLCPP_ERROR(node_->get_logger(),
-                 "%s: Action server with name '%s' is not reachable.", name().c_str(),
-                 prev_action_name_.c_str());
+    RCLCPP_ERROR(logger(), "%s: Action server with name '%s' is not reachable.",
+                 name().c_str(), action_name_.c_str());
   }
   return found;
 }
@@ -283,25 +331,32 @@ inline bool RosActionNode<T>::createClient(const std::string& action_name)
 template <class T>
 inline NodeStatus RosActionNode<T>::tick()
 {
+  if(!rclcpp::ok())
+  {
+    halt();
+    return NodeStatus::FAILURE;
+  }
+
   // First, check if the action_client_ is valid and that the name of the
   // action_name in the port didn't change.
   // otherwise, create a new client
-  if(!action_client_ || (status() == NodeStatus::IDLE && action_name_may_change_))
+  if(!client_instance_ || (status() == NodeStatus::IDLE && action_name_may_change_))
   {
     std::string action_name;
     getInput("action_name", action_name);
-    if(prev_action_name_ != action_name)
+    if(action_name_ != action_name)
     {
       createClient(action_name);
     }
   }
+  auto& action_client = client_instance_->action_client;
 
   //------------------------------------------
   auto CheckStatus = [](NodeStatus status) {
     if(!isStatusCompleted(status))
     {
-      throw std::logic_error("RosActionNode: the callback must return either SUCCESS of "
-                             "FAILURE");
+      throw LogicError("RosActionNode: the callback must return either SUCCESS nor "
+                       "FAILURE");
     }
     return status;
   };
@@ -340,7 +395,7 @@ inline NodeStatus RosActionNode<T>::tick()
     goal_options.result_callback = [this](const WrappedResult& result) {
       if(goal_handle_->get_goal_id() == result.goal_id)
       {
-        RCLCPP_DEBUG(node_->get_logger(), "result_callback");
+        RCLCPP_DEBUG(logger(), "result_callback");
         result_ = result;
         emitWakeUpSignal();
       }
@@ -351,21 +406,21 @@ inline NodeStatus RosActionNode<T>::tick()
           auto goal_handle_ = future_handle.get();
           if(!goal_handle_)
           {
-            RCLCPP_ERROR(node_->get_logger(), "Goal was rejected by server");
+            RCLCPP_ERROR(logger(), "Goal was rejected by server");
           }
           else
           {
-            RCLCPP_DEBUG(node_->get_logger(), "Goal accepted by server, waiting for "
-                                              "result");
+            RCLCPP_DEBUG(logger(), "Goal accepted by server, waiting for result");
           }
         };
     //--------------------
-
     // Check if server is ready
-    if(!action_client_->action_server_is_ready())
+    if(!action_client->action_server_is_ready())
+    {
       return onFailure(SERVER_UNREACHABLE);
+    }
 
-    future_goal_handle_ = action_client_->async_send_goal(goal, goal_options);
+    future_goal_handle_ = action_client->async_send_goal(goal, goal_options);
     time_goal_sent_ = node_->now();
 
     return NodeStatus::RUNNING;
@@ -373,7 +428,8 @@ inline NodeStatus RosActionNode<T>::tick()
 
   if(status() == NodeStatus::RUNNING)
   {
-    callback_group_executor_.spin_some();
+    std::unique_lock<std::mutex> lock(getMutex());
+    client_instance_->callback_executor.spin_some();
 
     // FIRST case: check if the goal request has a timeout
     if(!goal_received_)
@@ -382,8 +438,8 @@ inline NodeStatus RosActionNode<T>::tick()
       auto timeout =
           rclcpp::Duration::from_seconds(double(server_timeout_.count()) / 1000);
 
-      auto ret = callback_group_executor_.spin_until_future_complete(future_goal_handle_,
-                                                                     nodelay);
+      auto ret = client_instance_->callback_executor.spin_until_future_complete(
+          future_goal_handle_, nodelay);
       if(ret != rclcpp::FutureReturnCode::SUCCESS)
       {
         if((node_->now() - time_goal_sent_) > timeout)
@@ -449,25 +505,28 @@ inline void RosActionNode<T>::cancelGoal()
 {
   if(!goal_handle_)
   {
-    RCLCPP_WARN(node_->get_logger(), "cancelGoal called on an empty goal_handle");
+    RCLCPP_WARN(logger(), "cancelGoal called on an empty goal_handle");
     return;
   }
 
-  auto future_result = action_client_->async_get_result(goal_handle_);
-  auto future_cancel = action_client_->async_cancel_goal(goal_handle_);
+  auto& executor = client_instance_->callback_executor;
+  auto& action_client = client_instance_->action_client;
 
-  if(callback_group_executor_.spin_until_future_complete(
-         future_cancel, server_timeout_) != rclcpp::FutureReturnCode::SUCCESS)
+  auto future_result = action_client->async_get_result(goal_handle_);
+  auto future_cancel = action_client->async_cancel_goal(goal_handle_);
+
+  constexpr auto SUCCESS = rclcpp::FutureReturnCode::SUCCESS;
+
+  if(executor.spin_until_future_complete(future_cancel, server_timeout_) != SUCCESS)
   {
-    RCLCPP_ERROR(node_->get_logger(), "Failed to cancel action server for [%s]",
-                 prev_action_name_.c_str());
+    RCLCPP_ERROR(logger(), "Failed to cancel action server for [%s]",
+                 action_name_.c_str());
   }
 
-  if(callback_group_executor_.spin_until_future_complete(
-         future_result, server_timeout_) != rclcpp::FutureReturnCode::SUCCESS)
+  if(executor.spin_until_future_complete(future_result, server_timeout_) != SUCCESS)
   {
-    RCLCPP_ERROR(node_->get_logger(), "Failed to get result call failed :( for [%s]",
-                 prev_action_name_.c_str());
+    RCLCPP_ERROR(logger(), "Failed to get result call failed :( for [%s]",
+                 action_name_.c_str());
   }
 }
 

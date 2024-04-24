@@ -77,7 +77,7 @@ protected:
   }
 
   std::shared_ptr<rclcpp::Node> node_;
-  std::shared_ptr<SubscriberInstance> sub_instance_ = nullptr;
+  std::shared_ptr<SubscriberInstance> sub_instance_;
   std::shared_ptr<TopicT> last_msg_;
   std::string topic_name_;
   boost::signals2::connection signal_connection_;

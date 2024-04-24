@@ -263,8 +263,8 @@ inline NodeStatus RosServiceNode<T>::tick()
   auto CheckStatus = [](NodeStatus status) {
     if(!isStatusCompleted(status))
     {
-      throw std::logic_error("RosServiceNode: the callback must return either SUCCESS or "
-                             "FAILURE");
+      throw LogicError("RosServiceNode: the callback must return either SUCCESS nor "
+                       "FAILURE");
     }
     return status;
   };
@@ -329,7 +329,7 @@ inline NodeStatus RosServiceNode<T>::tick()
 
         if(!response_)
         {
-          throw std::runtime_error("Request was rejected by the service");
+          throw RuntimeError("Request was rejected by the service");
         }
       }
     }
