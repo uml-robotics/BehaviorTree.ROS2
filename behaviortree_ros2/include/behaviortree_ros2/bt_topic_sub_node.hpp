@@ -51,24 +51,7 @@ public:
 protected:
   struct SubscriberInstance
   {
-    void init(std::shared_ptr<rclcpp::Node> node, const std::string& topic_name)
-    {
-      // create a callback group for this particular instance
-      callback_group = node->create_callback_group(
-          rclcpp::CallbackGroupType::MutuallyExclusive, false);
-      callback_group_executor.add_callback_group(callback_group,
-                                                 node->get_node_base_interface());
-
-      rclcpp::SubscriptionOptions option;
-      option.callback_group = callback_group;
-
-      // The callback will broadcast to all the instances of RosTopicSubNode<T>
-      auto callback = [this](const std::shared_ptr<TopicT> msg) {
-        last_msg = msg;
-        broadcaster(msg);
-      };
-      subscriber = node->create_subscription<TopicT>(topic_name, 1, callback, option);
-    }
+    SubscriberInstance(std::shared_ptr<rclcpp::Node> node, const std::string& topic_name);
 
     std::shared_ptr<Subscriber> subscriber;
     rclcpp::CallbackGroup::SharedPtr callback_group;
@@ -83,12 +66,13 @@ protected:
     return sub_mutex;
   }
 
+  using SubscribersRegistry =
+      std::unordered_map<std::string, std::weak_ptr<SubscriberInstance>>;
+
   // contains the fully-qualified name of the node and the name of the topic
-  static std::unordered_map<std::string, std::shared_ptr<SubscriberInstance>>&
-  getRegistry()
+  static SubscribersRegistry& getRegistry()
   {
-    static std::unordered_map<std::string, std::shared_ptr<SubscriberInstance>>
-        subscribers_registry;
+    static SubscribersRegistry subscribers_registry;
     return subscribers_registry;
   }
 
@@ -108,7 +92,7 @@ public:
   /** You are not supposed to instantiate this class directly, the factory will do it.
    * To register this class into the factory, use:
    *
-   *    RegisterRosAction<DerivedClasss>(factory, params)
+   *    RegisterRosAction<DerivedClass>(factory, params)
    *
    * Note that if the external_action_client is not set, the constructor will build its own.
    * */
@@ -118,22 +102,6 @@ public:
   virtual ~RosTopicSubNode()
   {
     signal_connection_.disconnect();
-    // remove the subscribers from the static registry when the ALL the
-    // instances of RosTopicSubNode are destroyed (i.e., the tree is destroyed)
-    if(sub_instance_)
-    {
-      sub_instance_.reset();
-      std::unique_lock lk(registryMutex());
-      auto& registry = getRegistry();
-      auto it = registry.find(subscriber_key_);
-      // when the reference count is 1, means that the only instance is owned by the
-      // registry itself. Delete it
-      if(it != registry.end() && it->second.use_count() <= 1)
-      {
-        registry.erase(it);
-        RCLCPP_INFO(logger(), "Remove subscriber [%s]", topic_name_.c_str());
-      }
-    }
   }
 
   /**
@@ -190,6 +158,26 @@ private:
 //----------------------------------------------------------------
 //---------------------- DEFINITIONS -----------------------------
 //----------------------------------------------------------------
+template <class T>
+inline RosTopicSubNode<T>::SubscriberInstance::SubscriberInstance(
+    std::shared_ptr<rclcpp::Node> node, const std::string& topic_name)
+{
+  // create a callback group for this particular instance
+  callback_group =
+      node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  callback_group_executor.add_callback_group(callback_group,
+                                             node->get_node_base_interface());
+
+  rclcpp::SubscriptionOptions option;
+  option.callback_group = callback_group;
+
+  // The callback will broadcast to all the instances of RosTopicSubNode<T>
+  auto callback = [this](const std::shared_ptr<T> msg) {
+    last_msg = msg;
+    broadcaster(msg);
+  };
+  subscriber = node->create_subscription<T>(topic_name, 1, callback, option);
+}
 
 template <class T>
 inline RosTopicSubNode<T>::RosTopicSubNode(const std::string& instance_name,
@@ -262,17 +250,15 @@ inline bool RosTopicSubNode<T>::createSubscriber(const std::string& topic_name)
   auto it = registry.find(subscriber_key_);
   if(it == registry.end())
   {
-    it = registry.insert({ subscriber_key_, std::make_shared<SubscriberInstance>() })
-             .first;
-    sub_instance_ = it->second;
-    sub_instance_->init(node_, topic_name);
+    sub_instance_ = std::make_shared<SubscriberInstance>(node_, topic_name);
+    registry.insert({ subscriber_key_, sub_instance_ });
 
     RCLCPP_INFO(logger(), "Node [%s] created Subscriber to topic [%s]", name().c_str(),
                 topic_name.c_str());
   }
   else
   {
-    sub_instance_ = it->second;
+    sub_instance_ = it->second.lock();
   }
 
   // Check if there was a message received before the creation of this subscriber action
