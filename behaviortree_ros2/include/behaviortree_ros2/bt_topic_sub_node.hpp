@@ -76,7 +76,7 @@ protected:
     return subscribers_registry;
   }
 
-  std::shared_ptr<rclcpp::Node> node_;
+  std::weak_ptr<rclcpp::Node> node_;
   std::shared_ptr<SubscriberInstance> sub_instance_;
   std::shared_ptr<TopicT> last_msg_;
   std::string topic_name_;
@@ -85,7 +85,11 @@ protected:
 
   rclcpp::Logger logger()
   {
-    return node_->get_logger();
+    if(auto node = node_.lock())
+    {
+      return node->get_logger();
+    }
+    return rclcpp::get_logger("RosTopicSubNode");
   }
 
 public:
@@ -244,13 +248,16 @@ inline bool RosTopicSubNode<T>::createSubscriber(const std::string& topic_name)
 
   // find SubscriberInstance in the registry
   std::unique_lock lk(registryMutex());
-  subscriber_key_ = std::string(node_->get_fully_qualified_name()) + "/" + topic_name;
+
+  auto shared_node = node_.lock();
+  subscriber_key_ =
+      std::string(shared_node->get_fully_qualified_name()) + "/" + topic_name;
 
   auto& registry = getRegistry();
   auto it = registry.find(subscriber_key_);
   if(it == registry.end() || it->second.expired())
   {
-    sub_instance_ = std::make_shared<SubscriberInstance>(node_, topic_name);
+    sub_instance_ = std::make_shared<SubscriberInstance>(shared_node, topic_name);
     registry.insert({ subscriber_key_, sub_instance_ });
 
     RCLCPP_INFO(logger(), "Node [%s] created Subscriber to topic [%s]", name().c_str(),

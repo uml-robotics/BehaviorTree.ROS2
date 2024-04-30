@@ -159,7 +159,20 @@ protected:
 
   rclcpp::Logger logger()
   {
-    return node_->get_logger();
+    if(auto node = node_.lock())
+    {
+      return node->get_logger();
+    }
+    return rclcpp::get_logger("RosServiceNode");
+  }
+
+  rclcpp::Time now()
+  {
+    if(auto node = node_.lock())
+    {
+      return node->now();
+    }
+    return rclcpp::Clock(RCL_ROS_TIME).now();
   }
 
   using ClientsRegistry =
@@ -171,7 +184,7 @@ protected:
     return clients_registry;
   }
 
-  std::shared_ptr<rclcpp::Node> node_;
+  std::weak_ptr<rclcpp::Node> node_;
   std::string service_name_;
   bool service_name_may_change_ = false;
   const std::chrono::milliseconds service_timeout_;
@@ -268,13 +281,14 @@ inline bool RosServiceNode<T>::createClient(const std::string& service_name)
   }
 
   std::unique_lock lk(getMutex());
-  auto client_key = std::string(node_->get_fully_qualified_name()) + "/" + service_name;
+  auto node = node_.lock();
+  auto client_key = std::string(node->get_fully_qualified_name()) + "/" + service_name;
 
   auto& registry = getRegistry();
   auto it = registry.find(client_key);
   if(it == registry.end() || it->second.expired())
   {
-    srv_instance_ = std::make_shared<ServiceClientInstance>(node_, service_name);
+    srv_instance_ = std::make_shared<ServiceClientInstance>(node, service_name);
     registry.insert({ client_key, srv_instance_ });
 
     RCLCPP_INFO(logger(), "Node [%s] created service client [%s]", name().c_str(),
@@ -289,8 +303,8 @@ inline bool RosServiceNode<T>::createClient(const std::string& service_name)
   bool found = srv_instance_->service_client->wait_for_service(wait_for_service_timeout_);
   if(!found)
   {
-    RCLCPP_ERROR(node_->get_logger(), "%s: Service with name '%s' is not reachable.",
-                 name().c_str(), service_name_.c_str());
+    RCLCPP_ERROR(logger(), "%s: Service with name '%s' is not reachable.", name().c_str(),
+                 service_name_.c_str());
   }
   return found;
 }
@@ -350,7 +364,7 @@ inline NodeStatus RosServiceNode<T>::tick()
     }
 
     future_response_ = srv_instance_->service_client->async_send_request(request).share();
-    time_request_sent_ = node_->now();
+    time_request_sent_ = now();
 
     return NodeStatus::RUNNING;
   }
@@ -371,7 +385,7 @@ inline NodeStatus RosServiceNode<T>::tick()
 
       if(ret != rclcpp::FutureReturnCode::SUCCESS)
       {
-        if((node_->now() - time_request_sent_) > timeout)
+        if((now() - time_request_sent_) > timeout)
         {
           return CheckStatus(onFailure(SERVICE_TIMEOUT));
         }

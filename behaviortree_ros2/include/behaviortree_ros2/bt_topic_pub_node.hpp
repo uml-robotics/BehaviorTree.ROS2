@@ -39,7 +39,7 @@ public:
   /** You are not supposed to instantiate this class directly, the factory will do it.
    * To register this class into the factory, use:
    *
-   *    RegisterRosAction<DerivedClasss>(factory, params)
+   *    RegisterRosAction<DerivedClass>(factory, params)
    *
    * Note that if the external_action_client is not set, the constructor will build its own.
    * */

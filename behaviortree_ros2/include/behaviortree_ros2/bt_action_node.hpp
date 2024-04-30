@@ -188,7 +188,20 @@ protected:
 
   rclcpp::Logger logger()
   {
-    return node_->get_logger();
+    if(auto node = node_.lock())
+    {
+      return node->get_logger();
+    }
+    return rclcpp::get_logger("RosActionNode");
+  }
+
+  rclcpp::Time now()
+  {
+    if(auto node = node_.lock())
+    {
+      return node->now();
+    }
+    return rclcpp::Clock(RCL_ROS_TIME).now();
   }
 
   using ClientsRegistry =
@@ -200,7 +213,7 @@ protected:
     return action_clients_registry;
   }
 
-  std::shared_ptr<rclcpp::Node> node_;
+  std::weak_ptr<rclcpp::Node> node_;
   std::shared_ptr<ActionClientInstance> client_instance_;
   std::string action_name_;
   bool action_name_may_change_ = false;
@@ -302,13 +315,14 @@ inline bool RosActionNode<T>::createClient(const std::string& action_name)
   }
 
   std::unique_lock lk(getMutex());
-  action_client_key_ = std::string(node_->get_fully_qualified_name()) + "/" + action_name;
+  auto node = node_.lock();
+  action_client_key_ = std::string(node->get_fully_qualified_name()) + "/" + action_name;
 
   auto& registry = getRegistry();
   auto it = registry.find(action_client_key_);
   if(it == registry.end() || it->second.expired())
   {
-    client_instance_ = std::make_shared<ActionClientInstance>(node_, action_name);
+    client_instance_ = std::make_shared<ActionClientInstance>(node, action_name);
     registry.insert({ action_client_key_, client_instance_ });
   }
   else
@@ -421,7 +435,7 @@ inline NodeStatus RosActionNode<T>::tick()
     }
 
     future_goal_handle_ = action_client->async_send_goal(goal, goal_options);
-    time_goal_sent_ = node_->now();
+    time_goal_sent_ = now();
 
     return NodeStatus::RUNNING;
   }
@@ -442,7 +456,7 @@ inline NodeStatus RosActionNode<T>::tick()
           future_goal_handle_, nodelay);
       if(ret != rclcpp::FutureReturnCode::SUCCESS)
       {
-        if((node_->now() - time_goal_sent_) > timeout)
+        if((now() - time_goal_sent_) > timeout)
         {
           return CheckStatus(onFailure(SEND_GOAL_TIMEOUT));
         }
