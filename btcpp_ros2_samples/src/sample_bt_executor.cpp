@@ -16,10 +16,10 @@
 
 // Example that shows how to customize ActionServerBT.
 // Here, we simply add an extra logger
-class MyActionServer : public action_server_bt::ActionServerBT
+class MyActionServer : public BT::TreeExecutionServer
 {
 public:
-  MyActionServer(const rclcpp::NodeOptions& options) : ActionServerBT(options)
+  MyActionServer(const rclcpp::NodeOptions& options) : TreeExecutionServer(options)
   {}
 
   void onTreeCreated(BT::Tree& tree) override

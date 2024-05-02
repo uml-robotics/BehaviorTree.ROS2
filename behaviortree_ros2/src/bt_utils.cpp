@@ -15,13 +15,13 @@
 
 namespace
 {
-static const auto kLogger = rclcpp::get_logger("action_server_bt");
+static const auto kLogger = rclcpp::get_logger("bt_action_server");
 }
 
-namespace action_server_bt
+namespace BT
 {
 
-btcpp_ros2_interfaces::msg::NodeStatus convert_node_status(BT::NodeStatus& status)
+btcpp_ros2_interfaces::msg::NodeStatus ConvertNodeStatus(BT::NodeStatus& status)
 {
   btcpp_ros2_interfaces::msg::NodeStatus action_status;
   switch(status)
@@ -41,7 +41,7 @@ btcpp_ros2_interfaces::msg::NodeStatus convert_node_status(BT::NodeStatus& statu
   return action_status;
 }
 
-std::string get_directory_path(const std::string& parameter_value)
+std::string GetDirectoryPath(const std::string& parameter_value)
 {
   std::string package_name, subfolder;
   auto pos = parameter_value.find_first_of("/");
@@ -70,8 +70,8 @@ std::string get_directory_path(const std::string& parameter_value)
   return "";
 }
 
-void load_behavior_trees(BT::BehaviorTreeFactory& factory,
-                         const std::string& directory_path)
+void LoadBehaviorTrees(BT::BehaviorTreeFactory& factory,
+                       const std::string& directory_path)
 {
   using std::filesystem::directory_iterator;
   for(const auto& entry : directory_iterator(directory_path))
@@ -92,7 +92,7 @@ void load_behavior_trees(BT::BehaviorTreeFactory& factory,
   }
 }
 
-void load_plugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path)
+void LoadPlugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path)
 {
   using std::filesystem::directory_iterator;
   for(const auto& entry : directory_iterator(directory_path))
@@ -113,8 +113,8 @@ void load_plugins(BT::BehaviorTreeFactory& factory, const std::string& directory
   }
 }
 
-void load_ros_plugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path,
-                      rclcpp::Node::SharedPtr node)
+void LoadRosPlugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path,
+                    rclcpp::Node::SharedPtr node)
 {
   using std::filesystem::directory_iterator;
   BT::RosNodeParams params;
@@ -137,37 +137,36 @@ void load_ros_plugins(BT::BehaviorTreeFactory& factory, const std::string& direc
   }
 }
 
-void register_behavior_trees(action_server_bt::Params& params,
-                             BT::BehaviorTreeFactory& factory,
-                             rclcpp::Node::SharedPtr node)
+void RegisterBehaviorTrees(action_server_bt::Params& params,
+                           BT::BehaviorTreeFactory& factory, rclcpp::Node::SharedPtr node)
 {
   // clear the factory and load/reload it with the Behaviors and Trees specified by the user in their action_server_bt config yaml
   factory.clearRegisteredBehaviorTrees();
 
   for(const auto& plugin : params.plugins)
   {
-    const auto plugin_directory = get_directory_path(plugin);
+    const auto plugin_directory = GetDirectoryPath(plugin);
     // skip invalid plugins directories
     if(plugin_directory.empty())
       continue;
-    load_plugins(factory, plugin_directory);
+    LoadPlugins(factory, plugin_directory);
   }
   for(const auto& plugin : params.ros_plugins)
   {
-    const auto plugin_directory = get_directory_path(plugin);
+    const auto plugin_directory = GetDirectoryPath(plugin);
     // skip invalid plugins directories
     if(plugin_directory.empty())
       continue;
-    load_ros_plugins(factory, plugin_directory, node);
+    LoadRosPlugins(factory, plugin_directory, node);
   }
   for(const auto& tree_dir : params.behavior_trees)
   {
-    const auto tree_directory = get_directory_path(tree_dir);
+    const auto tree_directory = GetDirectoryPath(tree_dir);
     // skip invalid subtree directories
     if(tree_directory.empty())
       continue;
-    load_behavior_trees(factory, tree_directory);
+    LoadBehaviorTrees(factory, tree_directory);
   }
 }
 
-}  // namespace action_server_bt
+}  // namespace BT

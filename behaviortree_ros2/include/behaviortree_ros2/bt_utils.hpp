@@ -28,55 +28,61 @@
 #include "rclcpp/rclcpp.hpp"
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
-namespace action_server_bt
+namespace BT
 {
 /**
  * @brief Convert BT::NodeStatus into Action Server feedback message NodeStatus
+ *
  * @param status Current status of the executing BehaviorTree
  * @return NodeStatus used to publish feedback to the Action Client
  */
-btcpp_ros2_interfaces::msg::NodeStatus convert_node_status(BT::NodeStatus& status);
+btcpp_ros2_interfaces::msg::NodeStatus ConvertNodeStatus(BT::NodeStatus& status);
 
 /**
  * @brief Function the uses ament_index_cpp to get the package path of the parameter specified by the user
+ *
  * @param parameter_value String containing 'package_name/subfolder' for the directory path to look up
  * @return Full path to the directory specified by the parameter_value
  */
-std::string get_directory_path(const std::string& parameter_value);
+std::string GetDirectoryPath(const std::string& parameter_value);
 
 /**
  * @brief Function to load BehaviorTree xml files from a specific directory
+ *
  * @param factory BehaviorTreeFactory to register the BehaviorTrees into
  * @param directory_path Full path to the directory to search for BehaviorTree definitions
  */
-void load_behavior_trees(BT::BehaviorTreeFactory& factory,
-                         const std::string& directory_path);
+void LoadBehaviorTrees(BT::BehaviorTreeFactory& factory,
+                       const std::string& directory_path);
 
 /**
  * @brief Function to load BehaviorTree plugins from a specific directory
+ *
  * @param factory BehaviorTreeFactory to register the plugins into
  * @param directory_path Full path to the directory to search for BehaviorTree plugins
  */
-void load_plugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path);
+void LoadPlugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path);
 
 /**
  * @brief Function to load BehaviorTree ROS plugins from a specific directory
+ *
  * @param factory BehaviorTreeFactory to register the plugins into
  * @param directory_path Full path to the directory to search for BehaviorTree plugins
  * @param node node pointer that is shared with the ROS based BehaviorTree plugins
  */
-void load_ros_plugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path,
-                      rclcpp::Node::SharedPtr node);
+void LoadRosPlugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path,
+                    rclcpp::Node::SharedPtr node);
 
 /**
  * @brief Function to register all Behaviors and BehaviorTrees from user specified packages
+ *
  * @param params ROS parameters that contain lists of packages to load
  * plugins, ros_plugins and BehaviorTrees from
  * @param factory BehaviorTreeFactory to register into
  * @param node node pointer that is shared with the ROS based Behavior plugins
  */
-void register_behavior_trees(action_server_bt::Params& params,
-                             BT::BehaviorTreeFactory& factory,
-                             rclcpp::Node::SharedPtr node);
+void RegisterBehaviorTrees(action_server_bt::Params& params,
+                           BT::BehaviorTreeFactory& factory,
+                           rclcpp::Node::SharedPtr node);
 
-}  // namespace action_server_bt
+}  // namespace BT

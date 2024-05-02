@@ -1,7 +1,7 @@
 action_server_bt:
   action_name: {
     type: string,
-    default_value: "action_server_bt",
+    default_value: "bt_action_server",
     read_only: true,
     description: "The name the Action Server takes requests from",
   }

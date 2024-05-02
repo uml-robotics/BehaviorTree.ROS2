@@ -21,34 +21,34 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
-namespace action_server_bt
+namespace BT
 {
 
 /**
- * @brief ActionServerBT class hosts a ROS Action Server that is able
+ * @brief TreeExecutionServer class hosts a ROS Action Server that is able
  * to load Behavior plugins, BehaviorTree.xml files and execute them.
  */
-class ActionServerBT
+class TreeExecutionServer
 {
 public:
   using ExecuteTree = btcpp_ros2_interfaces::action::ExecuteTree;
   using GoalHandleExecuteTree = rclcpp_action::ServerGoalHandle<ExecuteTree>;
 
   /**
-   * @brief Constructor for ActionServerBT.
+   * @brief Constructor for TreeExecutionServer.
    * @details This initializes a ParameterListener to read configurable options from the user and
    * starts an Action Server that takes requests to execute BehaviorTrees.
    *
    * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
    * after the tree is created, while its running and after it finishes.
    */
-  explicit ActionServerBT(const rclcpp::NodeOptions& options);
+  explicit TreeExecutionServer(const rclcpp::NodeOptions& options);
 
-  virtual ~ActionServerBT();
+  virtual ~TreeExecutionServer();
 
   /**
    * @brief Gets the NodeBaseInterface of node_.
-   * @details This function exists to allow running ActionServerBT as a component in a composable node container.
+   * @details This function exists to allow running TreeExecutionServer as a component in a composable node container.
    *
    * @return A shared_ptr to the NodeBaseInterface of node_.
    */
@@ -64,22 +64,28 @@ public:
   BT::Blackboard::Ptr globalBlackboard();
 
 protected:
-  // To be overridden by the user.
-  // Callback invoked when the tree is created and before it is executed,
-  // Can be used to update the blackboard or to attach loggers.
+  /**
+   * @brief Callback invoked after the tree is created.
+   * It can be used, for instance, to initialize a logger or the global blackboard.
+   *
+   * @param tree The tree that was created
+  */
   virtual void onTreeCreated(BT::Tree& tree)
   {}
 
-  // To be overridden by the user.
-  // In addition to the built in mechanism to register nodes from plugins,
-  // you can use this method to register custom nodes into the factory.
+  /**
+   * @brief registerNodesIntoFactory is a callback invoked after the
+   * plugins were registered into the BT::BehaviorTreeFactory.
+   * It can be used to register additional custom nodes manually.
+   *
+   * @param factory The factory to use to register nodes
+  */
   virtual void registerNodesIntoFactory(BT::BehaviorTreeFactory& factory)
   {}
 
-  // To be overridden by the user.
-  // Callback invoked after the tickOnce.
-  // If it returns something different than std::nullopt, the tree execution will
-  // be halted and the returned value will be the optional NodeStatus.
+  /**
+   * @brief onLoopAfterTick invoked after the tree is created and before the tree is executed.
+  */
   virtual std::optional<BT::NodeStatus> onLoopAfterTick(BT::NodeStatus status)
   {
     return std::nullopt;
@@ -129,4 +135,4 @@ private:
   void execute(const std::shared_ptr<GoalHandleExecuteTree> goal_handle);
 };
 
-}  // namespace action_server_bt
+}  // namespace BT
