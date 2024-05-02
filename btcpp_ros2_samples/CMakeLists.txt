@@ -7,8 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(ament_cmake REQUIRED)
 find_package(behaviortree_ros2 REQUIRED)
-find_package(std_msgs REQUIRED)
 find_package(btcpp_ros2_interfaces REQUIRED)
+find_package(std_msgs REQUIRED)
 
 set(THIS_PACKAGE_DEPS
     behaviortree_ros2
@@ -16,7 +16,12 @@ set(THIS_PACKAGE_DEPS
     btcpp_ros2_interfaces )
 
 ######################################################
-# Build a client that call the sleep action (STATIC version)
+# Simple example showing how to use and customize the BtExecutionServer
+add_executable(sample_bt_executor src/sample_bt_executor.cpp)
+ament_target_dependencies(sample_bt_executor ${THIS_PACKAGE_DEPS})
+
+######################################################
+# Build an Action Client that calls the sleep action (STATIC version)
 
 add_executable(sleep_client
   src/sleep_action.cpp
@@ -54,6 +59,7 @@ install(TARGETS
   sleep_server
   sleep_plugin
   subscriber_test
+  sample_bt_executor
   DESTINATION lib/${PROJECT_NAME}
   )
 
@@ -66,6 +72,7 @@ install(TARGETS
   ARCHIVE DESTINATION share/${PROJECT_NAME}/bt_plugins
   RUNTIME DESTINATION share/${PROJECT_NAME}/bt_plugins
   )
+
 
 ament_export_dependencies(behaviortree_ros2 btcpp_ros2_interfaces)
 
