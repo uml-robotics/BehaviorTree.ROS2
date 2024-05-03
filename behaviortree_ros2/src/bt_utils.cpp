@@ -12,6 +12,7 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "behaviortree_ros2/bt_utils.hpp"
+#include "behaviortree_ros2/plugins.hpp"
 
 namespace
 {
@@ -92,73 +93,69 @@ void LoadBehaviorTrees(BT::BehaviorTreeFactory& factory,
   }
 }
 
-void LoadPlugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path)
-{
-  using std::filesystem::directory_iterator;
-  for(const auto& entry : directory_iterator(directory_path))
-  {
-    if(entry.path().extension() == ".so")
-    {
-      try
-      {
-        factory.registerFromPlugin(entry.path().string());
-        RCLCPP_INFO(kLogger, "Loaded Plugin: %s", entry.path().filename().c_str());
-      }
-      catch(const std::exception& e)
-      {
-        RCLCPP_ERROR(kLogger, "Failed to load Plugin: %s \n %s",
-                     entry.path().filename().c_str(), e.what());
-      }
-    }
-  }
-}
-
 void LoadRosPlugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path,
-                    rclcpp::Node::SharedPtr node)
+                    BT::RosNodeParams params)
 {
   using std::filesystem::directory_iterator;
-  BT::RosNodeParams params;
-  params.nh = node;
+
   for(const auto& entry : directory_iterator(directory_path))
   {
+    const auto filename = entry.path().filename();
     if(entry.path().extension() == ".so")
     {
       try
       {
-        RegisterRosNode(factory, entry.path().string(), params);
-        RCLCPP_INFO(kLogger, "Loaded ROS Plugin: %s", entry.path().filename().c_str());
+        BT::SharedLibrary loader(entry.path().string());
+        if(loader.hasSymbol(BT::PLUGIN_SYMBOL))
+        {
+          typedef void (*Func)(BehaviorTreeFactory&);
+          auto func = (Func)loader.getSymbol(BT::PLUGIN_SYMBOL);
+          func(factory);
+        }
+        else if(loader.hasSymbol(BT::ROS_PLUGIN_SYMBOL))
+        {
+          typedef void (*Func)(BT::BehaviorTreeFactory&, const BT::RosNodeParams&);
+          auto func = (Func)loader.getSymbol(BT::ROS_PLUGIN_SYMBOL);
+          func(factory, params);
+        }
+        else
+        {
+          RCLCPP_ERROR(kLogger, "Failed to load Plugin from file: %s.", filename.c_str());
+          continue;
+        }
+        RCLCPP_INFO(kLogger, "Loaded ROS Plugin: %s", filename.c_str());
       }
       catch(const std::exception& e)
       {
-        RCLCPP_ERROR(kLogger, "Failed to load ROS Plugin: %s \n %s",
-                     entry.path().filename().c_str(), e.what());
+        RCLCPP_ERROR(kLogger, "Failed to load ROS Plugin: %s \n %s", filename.c_str(),
+                     e.what());
       }
     }
   }
 }
 
-void RegisterBehaviorTrees(action_server_bt::Params& params,
-                           BT::BehaviorTreeFactory& factory, rclcpp::Node::SharedPtr node)
+void RegisterBehaviorTrees(bt_server::Params& params, BT::BehaviorTreeFactory& factory,
+                           rclcpp::Node::SharedPtr node)
 {
-  // clear the factory and load/reload it with the Behaviors and Trees specified by the user in their action_server_bt config yaml
+  // clear the factory and load/reload it with the Behaviors and Trees specified by the user in their [bt_action_server] config yaml
   factory.clearRegisteredBehaviorTrees();
+
+  BT::RosNodeParams ros_params;
+  ros_params.nh = node;
+  ros_params.server_timeout = std::chrono::milliseconds(params.ros_plugins_timeout);
+  ros_params.wait_for_server_timeout = ros_params.server_timeout;
 
   for(const auto& plugin : params.plugins)
   {
     const auto plugin_directory = GetDirectoryPath(plugin);
     // skip invalid plugins directories
     if(plugin_directory.empty())
+    {
       continue;
-    LoadPlugins(factory, plugin_directory);
+    }
+    LoadRosPlugins(factory, plugin_directory, ros_params);
   }
-  for(const auto& plugin : params.ros_plugins)
-  {
-    const auto plugin_directory = GetDirectoryPath(plugin);
-    // skip invalid plugins directories
-    if(plugin_directory.empty())
-      continue;
-    LoadRosPlugins(factory, plugin_directory, node);
-  }
+
   for(const auto& tree_dir : params.behavior_trees)
   {
     const auto tree_directory = GetDirectoryPath(tree_dir);

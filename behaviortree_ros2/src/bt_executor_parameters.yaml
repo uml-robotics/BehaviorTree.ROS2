@@ -1,11 +1,11 @@
-action_server_bt:
+bt_server:
   action_name: {
     type: string,
     default_value: "bt_action_server",
     read_only: true,
     description: "The name the Action Server takes requests from",
   }
-  behavior_tick_frequency: {
+  tick_frequency: {
     type: int,
     default_value: 100,
     read_only: true,
@@ -31,10 +31,10 @@ action_server_bt:
       unique<>: null,
     }
   }
-  ros_plugins: {
-    type: string_array,
-    default_value: [],
-    description: "List of 'package_name/subfolder' containing BehaviorTree ROS plugins to load into the factory",
+  ros_plugins_timeout: {
+    type: int,
+    default_value: 1000,
+    description: "Timeout (ms) used in BT::RosNodeParams",
     validation: {
       unique<>: null,
     }

@@ -38,8 +38,8 @@ struct TreeExecutionServer::Pimpl
   // thread safe bool to keep track of cancel requests
   std::atomic<bool> cancel_requested{ false };
 
-  std::shared_ptr<action_server_bt::ParamListener> param_listener;
-  action_server_bt::Params params;
+  std::shared_ptr<bt_server::ParamListener> param_listener;
+  bt_server::Params params;
 
   BT::BehaviorTreeFactory factory;
   std::shared_ptr<BT::Groot2Publisher> groot_publisher;
@@ -62,7 +62,7 @@ struct TreeExecutionServer::Pimpl
 TreeExecutionServer::Pimpl::Pimpl(const rclcpp::NodeOptions& node_options)
   : node(std::make_unique<rclcpp::Node>("bt_action_server", node_options))
 {
-  param_listener = std::make_shared<action_server_bt::ParamListener>(node);
+  param_listener = std::make_shared<bt_server::ParamListener>(node);
   params = param_listener->get_params();
   global_blackboard = BT::Blackboard::create();
 }
@@ -168,8 +168,8 @@ void TreeExecutionServer::execute(
         std::make_shared<BT::Groot2Publisher>(*(p_->tree), p_->params.groot2_port);
 
     // Loop until the tree is done or a cancel is requested
-    const auto period = std::chrono::milliseconds(
-        static_cast<int>(1000.0 / p_->params.behavior_tick_frequency));
+    const auto period =
+        std::chrono::milliseconds(static_cast<int>(1000.0 / p_->params.tick_frequency));
     auto loop_deadline = std::chrono::steady_clock::now() + period;
 
     // operations to be done if the tree execution is aborted, either by

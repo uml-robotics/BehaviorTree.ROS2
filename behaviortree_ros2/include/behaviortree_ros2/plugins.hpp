@@ -20,6 +20,11 @@
 #include "behaviortree_cpp/utils/shared_library.h"
 #include "behaviortree_ros2/ros_node_params.hpp"
 
+namespace BT
+{
+constexpr const char* ROS_PLUGIN_SYMBOL = "BT_RegisterRosNodeFromPlugin";
+}
+
 // Use this macro to generate a plugin for:
 //
 // - BT::RosActionNode
@@ -54,6 +59,6 @@ inline void RegisterRosNode(BT::BehaviorTreeFactory& factory,
 {
   BT::SharedLibrary loader(filepath.generic_string());
   typedef void (*Func)(BT::BehaviorTreeFactory&, const BT::RosNodeParams&);
-  auto func = (Func)loader.getSymbol("BT_RegisterRosNodeFromPlugin");
+  auto func = (Func)loader.getSymbol(BT::ROS_PLUGIN_SYMBOL);
   func(factory, params);
 }
