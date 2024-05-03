@@ -72,4 +72,3 @@ List of 'package_name/subfolder' containing SubTrees to load into the BehaviorTr
 
 *Constraints:*
  - contains no duplicates
-
