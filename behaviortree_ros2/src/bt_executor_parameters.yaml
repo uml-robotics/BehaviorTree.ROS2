@@ -1,7 +1,7 @@
 bt_server:
   action_name: {
     type: string,
-    default_value: "bt_action_server",
+    default_value: "bt_execution",
     read_only: true,
     description: "The name the Action Server takes requests from",
   }
@@ -36,7 +36,7 @@ bt_server:
     default_value: 1000,
     description: "Timeout (ms) used in BT::RosNodeParams",
     validation: {
-      unique<>: null,
+      bounds<>: [1, 10000]
     }
   }
   behavior_trees: {

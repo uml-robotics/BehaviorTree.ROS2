@@ -7,7 +7,7 @@ out of the box directly.
 
 Further, the terms "load" will be equivalent to "register into the `BT::BehaviorTreeFactory`".
 
-The `TreeExecutionServer`offers the following features:
+The `TreeExecutionServer` offers the following features:
 
 - Configurable using ROS parameters (see below).
 - Load Behavior Trees definitions (XML files) from a list of folders.
@@ -21,6 +21,49 @@ Furthermore, the user can customize it to:
 - Use the "global blackboard", a new idiom/pattern explained in [this tutorial](https://github.com/BehaviorTree/BehaviorTree.CPP/blob/master/examples/t19_global_blackboard.cpp).
 - Customize the feedback of the `rclcpp_action::Server`.
 
+## Customization points
+
+These are the virtual method of `TreeExecutionServer` that can be overridden by the user.
+
+### void onTreeCreated(BT::Tree& tree)
+
+Callback invoked when a tree is created; this happens after `rclcpp_action::Server` receive a command from a client.
+
+It can be used, for instance, to initialize a logger or the global blackboard.
+
+###  void registerNodesIntoFactory(BT::BehaviorTreeFactory& factory)
+
+Called at the beginning, after all the plugins have been loaded.
+
+It can be used to register programmatically more BT.CPP Nodes.
+
+### std::optional<BT::NodeStatus> onLoopAfterTick(BT::NodeStatus status)
+
+Used to do something after the tree was ticked, in its execution loop.
+
+If this method returns something other than `std::nullopt`, the tree
+execution is interrupted an the specified `BT::NodeStatus` is returned to the `rclcpp_action::Client`.
+
+### void onTreeExecutionCompleted(BT::NodeStatus status, bool was_cancelled)
+
+Callback when the tree execution reaches its end.
+
+This happens if:
+
+1. Ticking the tree returns SUCCESS/FAILURE
+2. The `rclcpp_action::Client` cancels the action.
+3. Callback `onLoopAfterTick`cancels the execution.
+
+Argument `was_cancelled`is true in the 1st case, false otherwise.
+
+### std::optional<std::string> onLoopFeedback()
+
+This callback is invoked after `tree.tickOnce` and `onLoopAfterTick`.
+
+If it returns something other than `std::nullopt`, the provided string will be
+sent as feedback to the `rclcpp_action::Client`.
+
+
 
 ## ROS Parameters
 
@@ -29,24 +72,23 @@ Default Config
 ```yaml
 bt_action_server:
   ros__parameters:
-    action_name: bt_action_server
+    action_name: bt_execution
     behavior_tick_frequency: 100.0
     behavior_trees: '{}'
     groot2_port: 1667.0
+    ros_plugins_timeout: 1000,
     plugins: '{}'
-    ros_plugins: '{}'
-
 ```
 
-## action_name
+### action_name
 
 The name the Action Server takes requests from
 
 * Type: `string`
-* Default Value: "bt_action_server"
+* Default Value: "bt_execution"
 * Read only: True
 
-## behavior_tick_frequency
+### behavior_tick_frequency
 
 Frequency in Hz to tick() the Behavior tree at
 
@@ -57,7 +99,7 @@ Frequency in Hz to tick() the Behavior tree at
 *Constraints:*
  - parameter must be within bounds 1
 
-## groot2_port
+### groot2_port
 
 Server port value to publish Groot2 messages on
 
@@ -68,9 +110,21 @@ Server port value to publish Groot2 messages on
 *Constraints:*
  - parameter must be within bounds 1
 
-## plugins
+### ros_plugins_timeout
 
-List of 'package_name/subfolder' containing BehaviorTree plugins to load into the factory
+Timeout, in milliseconds, to use with ROS Plugins (see BT::RosNodeParams)
+
+* Type: `int`
+* Default Value: {}
+
+*Constraints:*
+ - parameter must be within 1 and 10000
+
+### plugins
+
+List of 'package_name/subfolder' containing BehaviorTree plugins to load into the factory.
+
+These are plugins created using either the macro `BT_RegisterNodesFromPlugin` or `BT_RegisterRosNodeFromPlugin`.
 
 * Type: `string_array`
 * Default Value: {}
@@ -78,17 +132,7 @@ List of 'package_name/subfolder' containing BehaviorTree plugins to load into th
 *Constraints:*
  - contains no duplicates
 
-## ros_plugins
-
-List of 'package_name/subfolder' containing BehaviorTree ROS plugins to load into the factory
-
-* Type: `string_array`
-* Default Value: {}
-
-*Constraints:*
- - contains no duplicates
-
-## behavior_trees
+### behavior_trees
 
 List of 'package_name/subfolder' containing SubTrees to load into the BehaviorTree factory
 
