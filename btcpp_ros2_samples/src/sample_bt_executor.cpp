@@ -14,7 +14,7 @@
 #include <behaviortree_ros2/tree_execution_server.hpp>
 #include <behaviortree_cpp/loggers/bt_cout_logger.h>
 
-// Example that shows how to customize ActionServerBT.
+// Example that shows how to customize TreeExecutionServer.
 // Here, we simply add an extra logger
 class MyActionServer : public BT::TreeExecutionServer
 {

@@ -73,6 +73,16 @@ install(TARGETS
   RUNTIME DESTINATION share/${PROJECT_NAME}/bt_plugins
   )
 
+######################################################
+# INSTALL Behavior.xml's, ROS config and launch files
+
+install(DIRECTORY
+    behavior_trees
+    config
+    launch
+    DESTINATION share/${PROJECT_NAME}/
+    )
+
 
 ament_export_dependencies(behaviortree_ros2 btcpp_ros2_interfaces)
 
