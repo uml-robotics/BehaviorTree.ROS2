@@ -1,15 +1,12 @@
 # Sample Behaviors
 
-For documentation on sample behaviors included in this package please see the BehaviorTree.CPP [ROS 2 Integration documentation](https://www.behaviortree.dev/docs/ros2_integration) .
+For documentation on sample behaviors included in this package please see the BehaviorTree.CPP [ROS 2 Integration documentation](https://www.behaviortree.dev/docs/ros2_integration). Documentation of the derived class methods can methods for each ROS interface type can be found [here](../behaviortree_ros2/ros_behavior_wrappers.md).
 
-# TreeExecutionServer Documentation and Example
+# TreeExecutionServer Sample
 
-This package also includes an example Behavior Tree Executor that is designed to make building, combining and executing [BehaviorTree.CPP](https://www.behaviortree.dev/docs/intro) based Behaviors easy and reusable.
-This Executor includes an Action Server that is able to register plugins or directly linked Behaviors and Trees/Subtrees so that a user can execute any known BehaviorTree by simply sending the name of it to the server.
+Documentation on the TreeExecutionServer used in this example can be found [here](../behaviortree_ros2/tree_execution_server.md).
 
-The `TreeExecutionServer` class offers several overridable methods that that can be used to meet your specific needs. Please see [tree_execution_server.hpp](../behaviortree_ros2/include/behaviortree_ros2/tree_execution_server.hpp) for descriptions and requirements of each virtual method. You can also refer to [sample_bt_executor.cpp](src/sample_bt_executor.cpp) for a working example of the `TreeExecutionServer`.
-
-A launch file is included that starts the Execution Server and loads a list of plugins and BehaviorTrees from `yaml` file:
+To start the sample Execution Server that load a list of plugins and BehaviorTrees from `yaml` file:
 ``` bash
 ros2 launch btcpp_ros2_samples sample_bt_executor.launch.xml
 ```
@@ -18,21 +15,21 @@ ros2 launch btcpp_ros2_samples sample_bt_executor.launch.xml
 
 As the Server starts up it will print out the name of the ROS Action followed by the plugins and BehaviorTrees it was able to load.
 ```
-[bt_action_server]: Starting Action Server: bt_action_server
+[bt_action_server]: Starting Action Server: behavior_server
 [bt_action_server]: Loaded Plugin: libdummy_nodes_dyn.so
 [bt_action_server]: Loaded Plugin: libmovebase_node_dyn.so
 [bt_action_server]: Loaded Plugin: libcrossdoor_nodes_dyn.so
-[bt_action_server]: Loaded ROS Plugin: libsleep_plugin.so
+[bt_action_server]: Loaded Plugin: libsleep_plugin.so
 [bt_action_server]: Loaded BehaviorTree: door_closed.xml
-[bt_action_server]: Loaded Beha viorTree: cross_door.xml
+[bt_action_server]: Loaded BehaviorTree: cross_door.xml
 ```
 
 To call the Action Server from the command line:
 ``` bash
-ros2 action send_goal /bt_action_server btcpp_ros2_interfaces/action/ExecuteTree "{target_tree: CrossDoor}"
+ros2 action send_goal /behavior_server btcpp_ros2_interfaces/action/ExecuteTree "{target_tree: CrossDoor}"
 ```
 
 You can also try a Behavior that is a ROS Action or Service client itself.
 ```bash
-ros2 action send_goal /bt_action_server btcpp_ros2_interfaces/action/ExecuteTree "{target_tree: SleepActionSample}"
+ros2 action send_goal /behavior_server btcpp_ros2_interfaces/action/ExecuteTree "{target_tree: SleepActionSample}"
 ```
