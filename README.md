@@ -24,7 +24,7 @@ Our main goals are:
 
 Note that this library is compatible **only** with:
 
-- **BT.CPP** 4.1 or newer.
+- **BT.CPP** 4.6 or newer.
 - **ROS2** Humble or newer.
 
 Additionally, check **plugins.hpp** to see how to learn how to
