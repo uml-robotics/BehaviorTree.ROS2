@@ -5,6 +5,7 @@ This repository contains useful wrappers to use ROS2 and BehaviorTree.CPP togeth
 
 In particular, it provides a standard way to implement:
 
+- Behavior Tree Executor with ROS Action interface.
 - Action clients.
 - Service Clients.
 - Topic Subscribers.
@@ -14,6 +15,12 @@ Our main goals are:
 
 - to minimize the amount of boilerplate.
 - to make asynchronous Actions non-blocking.
+
+# Documentation
+
+- [ROS Behavior Wrappers](behaviortree_ros2/ros_behavior_wrappers.md)
+- [TreeExecutionServer](behaviortree_ros2/tree_execution_server.md)
+- [Sample Behaviors](btcpp_ros2_samples/README.md)
 
 Note that this library is compatible **only** with:
 

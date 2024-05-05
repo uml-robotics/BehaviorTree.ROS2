@@ -316,6 +316,11 @@ inline bool RosActionNode<T>::createClient(const std::string& action_name)
 
   std::unique_lock lk(getMutex());
   auto node = node_.lock();
+  if(!node)
+  {
+    throw RuntimeError("The ROS node went out of scope. RosNodeParams doesn't take the "
+                       "ownership of the node.");
+  }
   action_client_key_ = std::string(node->get_fully_qualified_name()) + "/" + action_name;
 
   auto& registry = getRegistry();

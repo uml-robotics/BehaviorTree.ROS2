@@ -249,15 +249,19 @@ inline bool RosTopicSubNode<T>::createSubscriber(const std::string& topic_name)
   // find SubscriberInstance in the registry
   std::unique_lock lk(registryMutex());
 
-  auto shared_node = node_.lock();
-  subscriber_key_ =
-      std::string(shared_node->get_fully_qualified_name()) + "/" + topic_name;
+  auto node = node_.lock();
+  if(!node)
+  {
+    throw RuntimeError("The ROS node went out of scope. RosNodeParams doesn't take the "
+                       "ownership of the node.");
+  }
+  subscriber_key_ = std::string(node->get_fully_qualified_name()) + "/" + topic_name;
 
   auto& registry = getRegistry();
   auto it = registry.find(subscriber_key_);
   if(it == registry.end() || it->second.expired())
   {
-    sub_instance_ = std::make_shared<SubscriberInstance>(shared_node, topic_name);
+    sub_instance_ = std::make_shared<SubscriberInstance>(node, topic_name);
     registry.insert({ subscriber_key_, sub_instance_ });
 
     RCLCPP_INFO(logger(), "Node [%s] created Subscriber to topic [%s]", name().c_str(),
