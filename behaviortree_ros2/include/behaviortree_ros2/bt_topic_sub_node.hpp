@@ -250,6 +250,11 @@ inline bool RosTopicSubNode<T>::createSubscriber(const std::string& topic_name)
   std::unique_lock lk(registryMutex());
 
   auto shared_node = node_.lock();
+  if(!node)
+  {
+    throw RuntimeError("The ROS node went out of scope. RosNodeParams doesn't take the "
+                       "ownership of the node.");
+  }
   subscriber_key_ =
       std::string(shared_node->get_fully_qualified_name()) + "/" + topic_name;
 
