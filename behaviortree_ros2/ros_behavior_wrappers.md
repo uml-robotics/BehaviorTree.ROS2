@@ -13,7 +13,7 @@ Return false if the request should not be sent. In that case, RosActionNode::onF
 
 ### BT::NodeStatus onResultReceived(const WrappedResult& result)
 
-Required callback invoked when the result is received by the server. 
+Required callback invoked when the result is received by the server.
 It is up to the user to define if the action returns SUCCESS or FAILURE.
 
 ### BT::NodeStatus onFeedback(const std::shared_ptr<const Feedback> feedback)
@@ -61,6 +61,6 @@ Required callback invoked in the tick. You must return either SUCCESS of FAILURE
 
 ### bool latchLastMessage()
 
-Optional callback to latch the message that has been processed. 
-If returns false and no new message is received, before next call there will be no message to process. 
+Optional callback to latch the message that has been processed.
+If returns false and no new message is received, before next call there will be no message to process.
 If returns true, the next call will process the same message again, if no new message received.
