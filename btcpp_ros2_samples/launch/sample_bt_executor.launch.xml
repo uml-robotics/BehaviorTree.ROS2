@@ -1,8 +1,8 @@
 <launch>
   <arg name="sleep_server" default="true"/>
 
-  <node pkg="btcpp_ros2_samples" exec="simple_bt_executor" output="screen">
-    <param from="$(find-pkg-share btcpp_ros2_samples)/config/simple_bt_executor.yaml"/>
+  <node pkg="btcpp_ros2_samples" exec="sample_bt_executor" output="screen">
+    <param from="$(find-pkg-share btcpp_ros2_samples)/config/sample_bt_executor.yaml"/>
   </node>
 
   <group if="$(var sleep_server)">

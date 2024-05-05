@@ -67,77 +67,9 @@ sent as feedback to the `rclcpp_action::Client`.
 
 ## ROS Parameters
 
-Default Config
+Documentation for the parameters used by the `TreeExecutionServer` can be found [here](bt_executor_parameters.md).
 
-```yaml
-bt_action_server:
-  ros__parameters:
-    action_name: bt_execution
-    behavior_tick_frequency: 100.0
-    behavior_trees: '{}'
-    groot2_port: 1667.0
-    ros_plugins_timeout: 1000,
-    plugins: '{}'
+If the parameter documentation needs updating you can regenerate it with:
+```bash
+generate_parameter_library_markdown --input_yaml src/bt_executor_parameters.yaml --output_markdown_file bt_executor_parameters.md
 ```
-
-### action_name
-
-The name the Action Server takes requests from
-
-* Type: `string`
-* Default Value: "bt_execution"
-* Read only: True
-
-### behavior_tick_frequency
-
-Frequency in Hz to tick() the Behavior tree at
-
-* Type: `int`
-* Default Value: 100
-* Read only: True
-
-*Constraints:*
- - parameter must be within bounds 1
-
-### groot2_port
-
-Server port value to publish Groot2 messages on
-
-* Type: `int`
-* Default Value: 1667
-* Read only: True
-
-*Constraints:*
- - parameter must be within bounds 1
-
-### ros_plugins_timeout
-
-Timeout, in milliseconds, to use with ROS Plugins (see BT::RosNodeParams)
-
-* Type: `int`
-* Default Value: {}
-
-*Constraints:*
- - parameter must be within 1 and 10000
-
-### plugins
-
-List of 'package_name/subfolder' containing BehaviorTree plugins to load into the factory.
-
-These are plugins created using either the macro `BT_RegisterNodesFromPlugin` or `BT_RegisterRosNodeFromPlugin`.
-
-* Type: `string_array`
-* Default Value: {}
-
-*Constraints:*
- - contains no duplicates
-
-### behavior_trees
-
-List of 'package_name/subfolder' containing SubTrees to load into the BehaviorTree factory
-
-* Type: `string_array`
-* Default Value: {}
-
-*Constraints:*
- - contains no duplicates
