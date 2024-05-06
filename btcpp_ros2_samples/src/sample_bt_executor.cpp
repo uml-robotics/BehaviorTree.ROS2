@@ -14,13 +14,31 @@
 #include <behaviortree_ros2/tree_execution_server.hpp>
 #include <behaviortree_cpp/loggers/bt_cout_logger.h>
 
+#include <std_msgs/msg/float32.hpp>
+
 // Example that shows how to customize TreeExecutionServer.
-// Here, we simply add an extra logger
+//
+// Here, we:
+// - add an extra logger, BT::StdCoutLogger
+// - add a subscriber that will continuously update a variable in the global blackboard
+
 class MyActionServer : public BT::TreeExecutionServer
 {
 public:
   MyActionServer(const rclcpp::NodeOptions& options) : TreeExecutionServer(options)
-  {}
+  {
+    // here we assume that the battery voltage is published as a std_msgs::msg::Float32
+    auto node = std::dynamic_pointer_cast<rclcpp::Node>(nodeBaseInterface());
+    sub_ = node->create_subscription<std_msgs::msg::Float32>(
+        "battery_level", 10, [this](const std_msgs::msg::Float32::SharedPtr msg) {
+          // Update the global blackboard
+          globalBlackboard()->set("battery_level", msg->data);
+        });
+    // Note that the callback above and the execution of the tree accessing the
+    // global blackboard happen in two different threads.
+    // The former runs in the MultiThreadedExecutor, while the latter in the thread created
+    // by TreeExecutionServer. But this is OK because the blackboard is thread-safe.
+  }
 
   void onTreeCreated(BT::Tree& tree) override
   {
@@ -36,6 +54,7 @@ public:
 
 private:
   std::shared_ptr<BT::StdCoutLogger> logger_cout_;
+  rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr sub_;
 };
 
 int main(int argc, char* argv[])
