@@ -51,19 +51,24 @@ public:
   /**
    * @brief Gets the NodeBaseInterface of node_.
    * @details This function exists to allow running TreeExecutionServer as a component in a composable node container.
-   *
-   * @return A shared_ptr to the NodeBaseInterface of node_.
+   * The name of this method shall not change to work properly with the component composer.
    */
-  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr nodeBaseInterface();
+  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr get_node_base_interface();
 
-  // name of the tree being executed
+  /// @brief Gets the rclcpp::Node pointer
+  rclcpp::Node::SharedPtr node();
+
+  /// @brief Name of the tree being executed
   const std::string& currentTreeName() const;
 
-  // tree being executed, nullptr if it doesn't exist yet.
+  /// @brief Tree being executed, nullptr if it doesn't exist, yet.
   BT::Tree* currentTree();
 
-  // pointer to the global blackboard
+  /// @brief Pointer to the global blackboard
   BT::Blackboard::Ptr globalBlackboard();
+
+  /// @brief Pointer to the global blackboard
+  BT::BehaviorTreeFactory& factory();
 
 protected:
   /**
@@ -117,6 +122,18 @@ protected:
   {
     return std::nullopt;
   }
+
+protected:
+  /**
+   * @brief Method to register the trees and BT custom nodes.
+   * It will call registerNodesIntoFactory().
+   *
+   * This callback will invoked asynchronously when this rclcpp Node is attached
+   * to a rclcpp Executor.
+   * Alternatively, it can be called synchronously in the constructor of a
+   * __derived__ class of TreeExecutionServer.
+   */
+  void executeRegistration();
 
 private:
   struct Pimpl;

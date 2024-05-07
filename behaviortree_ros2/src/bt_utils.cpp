@@ -93,53 +93,42 @@ void LoadBehaviorTrees(BT::BehaviorTreeFactory& factory,
   }
 }
 
-void LoadRosPlugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path,
-                    BT::RosNodeParams params)
+void LoadPlugin(BT::BehaviorTreeFactory& factory, const std::filesystem::path& file_path,
+                BT::RosNodeParams params)
 {
-  using std::filesystem::directory_iterator;
-
-  for(const auto& entry : directory_iterator(directory_path))
+  const auto filename = file_path.filename();
+  try
   {
-    const auto filename = entry.path().filename();
-    if(entry.path().extension() == ".so")
+    BT::SharedLibrary loader(file_path.string());
+    if(loader.hasSymbol(BT::PLUGIN_SYMBOL))
     {
-      try
-      {
-        BT::SharedLibrary loader(entry.path().string());
-        if(loader.hasSymbol(BT::PLUGIN_SYMBOL))
-        {
-          typedef void (*Func)(BehaviorTreeFactory&);
-          auto func = (Func)loader.getSymbol(BT::PLUGIN_SYMBOL);
-          func(factory);
-        }
-        else if(loader.hasSymbol(BT::ROS_PLUGIN_SYMBOL))
-        {
-          typedef void (*Func)(BT::BehaviorTreeFactory&, const BT::RosNodeParams&);
-          auto func = (Func)loader.getSymbol(BT::ROS_PLUGIN_SYMBOL);
-          func(factory, params);
-        }
-        else
-        {
-          RCLCPP_ERROR(kLogger, "Failed to load Plugin from file: %s.", filename.c_str());
-          continue;
-        }
-        RCLCPP_INFO(kLogger, "Loaded ROS Plugin: %s", filename.c_str());
-      }
-      catch(const std::exception& e)
-      {
-        RCLCPP_ERROR(kLogger, "Failed to load ROS Plugin: %s \n %s", filename.c_str(),
-                     e.what());
-      }
+      typedef void (*Func)(BehaviorTreeFactory&);
+      auto func = (Func)loader.getSymbol(BT::PLUGIN_SYMBOL);
+      func(factory);
     }
+    else if(loader.hasSymbol(BT::ROS_PLUGIN_SYMBOL))
+    {
+      typedef void (*Func)(BT::BehaviorTreeFactory&, const BT::RosNodeParams&);
+      auto func = (Func)loader.getSymbol(BT::ROS_PLUGIN_SYMBOL);
+      func(factory, params);
+    }
+    else
+    {
+      RCLCPP_ERROR(kLogger, "Failed to load Plugin from file: %s.", filename.c_str());
+      return;
+    }
+    RCLCPP_INFO(kLogger, "Loaded ROS Plugin: %s", filename.c_str());
+  }
+  catch(const std::exception& ex)
+  {
+    RCLCPP_ERROR(kLogger, "Failed to load ROS Plugin: %s \n %s", filename.c_str(),
+                 ex.what());
   }
 }
 
-void RegisterBehaviorTrees(bt_server::Params& params, BT::BehaviorTreeFactory& factory,
-                           rclcpp::Node::SharedPtr node)
+void RegisterPlugins(bt_server::Params& params, BT::BehaviorTreeFactory& factory,
+                     rclcpp::Node::SharedPtr node)
 {
-  // clear the factory and load/reload it with the Behaviors and Trees specified by the user in their [bt_action_server] config yaml
-  factory.clearRegisteredBehaviorTrees();
-
   BT::RosNodeParams ros_params;
   ros_params.nh = node;
   ros_params.server_timeout = std::chrono::milliseconds(params.ros_plugins_timeout);
@@ -153,9 +142,21 @@ void RegisterBehaviorTrees(bt_server::Params& params, BT::BehaviorTreeFactory& f
     {
       continue;
     }
-    LoadRosPlugins(factory, plugin_directory, ros_params);
-  }
+    using std::filesystem::directory_iterator;
 
+    for(const auto& entry : directory_iterator(plugin_directory))
+    {
+      if(entry.path().extension() == ".so")
+      {
+        LoadPlugin(factory, entry.path(), ros_params);
+      }
+    }
+  }
+}
+
+void RegisterBehaviorTrees(bt_server::Params& params, BT::BehaviorTreeFactory& factory,
+                           rclcpp::Node::SharedPtr node)
+{
   for(const auto& tree_dir : params.behavior_trees)
   {
     const auto tree_directory = GetDirectoryPath(tree_dir);

@@ -28,8 +28,7 @@ public:
   MyActionServer(const rclcpp::NodeOptions& options) : TreeExecutionServer(options)
   {
     // here we assume that the battery voltage is published as a std_msgs::msg::Float32
-    auto node = std::dynamic_pointer_cast<rclcpp::Node>(nodeBaseInterface());
-    sub_ = node->create_subscription<std_msgs::msg::Float32>(
+    sub_ = node()->create_subscription<std_msgs::msg::Float32>(
         "battery_level", 10, [this](const std_msgs::msg::Float32::SharedPtr msg) {
           // Update the global blackboard
           globalBlackboard()->set("battery_level", msg->data);
@@ -68,9 +67,9 @@ int main(int argc, char* argv[])
   // Deadlock is caused when Publishers or Subscribers are dynamically removed as the node is spinning.
   rclcpp::executors::MultiThreadedExecutor exec(rclcpp::ExecutorOptions(), 0, false,
                                                 std::chrono::milliseconds(250));
-  exec.add_node(action_server->nodeBaseInterface());
+  exec.add_node(action_server->node());
   exec.spin();
-  exec.remove_node(action_server->nodeBaseInterface());
+  exec.remove_node(action_server->node());
 
   rclcpp::shutdown();
 }

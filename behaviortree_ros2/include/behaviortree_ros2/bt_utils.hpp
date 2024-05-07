@@ -56,14 +56,23 @@ void LoadBehaviorTrees(BT::BehaviorTreeFactory& factory,
                        const std::string& directory_path);
 
 /**
- * @brief Function to load BehaviorTree ROS plugins (or standard BT.CPP plugins) from a specific directory
+ * @brief Function to load a BehaviorTree ROS plugin (or standard BT.CPP plugins)
  *
- * @param factory BehaviorTreeFactory to register the plugins into
- * @param directory_path Full path to the directory to search for BehaviorTree plugins
- * @param params parameters passed to the ROS plugins
+ * @param factory BehaviorTreeFactory to register the plugin into
+ * @param file_path Full path to the directory to search for BehaviorTree plugin
+ * @param params parameters passed to the ROS plugin
  */
-void LoadRosPlugins(BT::BehaviorTreeFactory& factory, const std::string& directory_path,
-                    BT::RosNodeParams params);
+void LoadPlugin(BT::BehaviorTreeFactory& factory, const std::filesystem::path& file_path,
+                BT::RosNodeParams params);
+
+/** @brief Function to load all plugins from the specified package
+ *
+ * @param params ROS parameters that contain the package name to load plugins from
+ * @param factory BehaviorTreeFactory to register the plugins into
+ * @param node node pointer that is shared with the ROS based Behavior plugins
+ */
+void RegisterPlugins(bt_server::Params& params, BT::BehaviorTreeFactory& factory,
+                     rclcpp::Node::SharedPtr node);
 
 /**
  * @brief Function to register all Behaviors and BehaviorTrees from user specified packages
