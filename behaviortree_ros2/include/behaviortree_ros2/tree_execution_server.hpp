@@ -37,14 +37,16 @@ public:
   using GoalHandleExecuteTree = rclcpp_action::ServerGoalHandle<ExecuteTree>;
 
   /**
-   * @brief Constructor for TreeExecutionServer.
-   * @details This initializes a ParameterListener to read configurable options from the user and
-   * starts an Action Server that takes requests to execute BehaviorTrees.
-   *
-   * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
-   * after the tree is created, while its running and after it finishes.
+   * @brief Constructor that will create its own instance of rclcpp::Node
    */
-  explicit TreeExecutionServer(const rclcpp::NodeOptions& options);
+  explicit TreeExecutionServer(const rclcpp::NodeOptions& options)
+    : TreeExecutionServer(std::make_unique<rclcpp::Node>("bt_action_server", options))
+  {}
+
+  /**
+   * @brief Constructor to use when an already existing node should be used.
+  */
+  explicit TreeExecutionServer(const rclcpp::Node::SharedPtr& node);
 
   virtual ~TreeExecutionServer();
 
@@ -138,6 +140,7 @@ protected:
 private:
   struct Pimpl;
   std::unique_ptr<Pimpl> p_;
+  rclcpp::Node::SharedPtr node_;
 
   /**
    * @brief handle the goal requested: accept or reject. This implementation always accepts.

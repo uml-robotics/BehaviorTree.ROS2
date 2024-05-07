@@ -30,9 +30,6 @@ namespace BT
 
 struct TreeExecutionServer::Pimpl
 {
-  Pimpl(const rclcpp::NodeOptions& node_options);
-
-  rclcpp::Node::SharedPtr node;
   rclcpp_action::Server<ExecuteTree>::SharedPtr action_server;
   std::thread action_thread;
   // thread safe bool to keep track of cancel requests
@@ -50,53 +47,20 @@ struct TreeExecutionServer::Pimpl
   bool factory_initialized_ = false;
 
   rclcpp::WallTimer<rclcpp::VoidCallbackType>::SharedPtr single_shot_timer;
-
-  rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& uuid,
-                                          std::shared_ptr<const ExecuteTree::Goal> goal);
-
-  rclcpp_action::CancelResponse
-  handle_cancel(const std::shared_ptr<GoalHandleExecuteTree> goal_handle);
-
-  void handle_accepted(const std::shared_ptr<GoalHandleExecuteTree> goal_handle);
-
-  void execute(const std::shared_ptr<GoalHandleExecuteTree> goal_handle);
 };
 
-TreeExecutionServer::Pimpl::Pimpl(const rclcpp::NodeOptions& node_options)
-  : node(std::make_unique<rclcpp::Node>("bt_action_server", node_options))
+TreeExecutionServer::TreeExecutionServer(const rclcpp::Node::SharedPtr& node)
+  : p_(new Pimpl), node_(node)
 {
-  param_listener = std::make_shared<bt_server::ParamListener>(node);
-  params = param_listener->get_params();
-  global_blackboard = BT::Blackboard::create();
-}
-
-TreeExecutionServer::~TreeExecutionServer()
-{}
-
-void TreeExecutionServer::executeRegistration()
-{
-  // Before executing check if we have new Behaviors or Subtrees to reload
-  p_->factory.clearRegisteredBehaviorTrees();
-
+  p_->param_listener = std::make_shared<bt_server::ParamListener>(node_);
   p_->params = p_->param_listener->get_params();
-  // user defined method
-  registerNodesIntoFactory(p_->factory);
-  // load plugins from multiple directories
-  RegisterPlugins(p_->params, p_->factory, p_->node);
-  // load trees (XML) from multiple directories
-  RegisterBehaviorTrees(p_->params, p_->factory, p_->node);
+  p_->global_blackboard = BT::Blackboard::create();
 
-  p_->factory_initialized_ = true;
-}
-
-TreeExecutionServer::TreeExecutionServer(const rclcpp::NodeOptions& options)
-  : p_(new Pimpl(options))
-{
   // create the action server
   const auto action_name = p_->params.action_name;
   RCLCPP_INFO(kLogger, "Starting Action Server: %s", action_name.c_str());
   p_->action_server = rclcpp_action::create_server<ExecuteTree>(
-      p_->node, action_name,
+      node_, action_name,
       [this](const rclcpp_action::GoalUUID& uuid,
              std::shared_ptr<const ExecuteTree::Goal> goal) {
         return handle_goal(uuid, std::move(goal));
@@ -119,18 +83,37 @@ TreeExecutionServer::TreeExecutionServer(const rclcpp::NodeOptions& options)
   };
 
   p_->single_shot_timer =
-      p_->node->create_wall_timer(std::chrono::milliseconds(1), callback);
+      node_->create_wall_timer(std::chrono::milliseconds(1), callback);
+}
+
+TreeExecutionServer::~TreeExecutionServer()
+{}
+
+void TreeExecutionServer::executeRegistration()
+{
+  // Before executing check if we have new Behaviors or Subtrees to reload
+  p_->factory.clearRegisteredBehaviorTrees();
+
+  p_->params = p_->param_listener->get_params();
+  // user defined method
+  registerNodesIntoFactory(p_->factory);
+  // load plugins from multiple directories
+  RegisterPlugins(p_->params, p_->factory, node_);
+  // load trees (XML) from multiple directories
+  RegisterBehaviorTrees(p_->params, p_->factory, node_);
+
+  p_->factory_initialized_ = true;
 }
 
 rclcpp::node_interfaces::NodeBaseInterface::SharedPtr
 TreeExecutionServer::get_node_base_interface()
 {
-  return p_->node->get_node_base_interface();
+  return node_->get_node_base_interface();
 }
 
 rclcpp::Node::SharedPtr TreeExecutionServer::node()
 {
-  return p_->node;
+  return node_;
 }
 
 rclcpp_action::GoalResponse
