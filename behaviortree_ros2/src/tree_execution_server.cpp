@@ -95,9 +95,14 @@ TreeExecutionServer::TreeExecutionServer(const rclcpp::NodeOptions& options)
 }
 
 rclcpp::node_interfaces::NodeBaseInterface::SharedPtr
-TreeExecutionServer::nodeBaseInterface()
+TreeExecutionServer::get_node_base_interface()
 {
   return p_->node->get_node_base_interface();
+}
+
+rclcpp::Node::SharedPtr TreeExecutionServer::node()
+{
+  return p_->node;
 }
 
 rclcpp_action::GoalResponse
@@ -260,6 +265,11 @@ BT::Tree* TreeExecutionServer::currentTree()
 BT::Blackboard::Ptr TreeExecutionServer::globalBlackboard()
 {
   return p_->global_blackboard;
+}
+
+BT::BehaviorTreeFactory& TreeExecutionServer::factory()
+{
+  return p_->factory;
 }
 
 }  // namespace BT
