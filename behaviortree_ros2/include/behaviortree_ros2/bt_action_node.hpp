@@ -522,13 +522,32 @@ inline void RosActionNode<T>::halt()
 template <class T>
 inline void RosActionNode<T>::cancelGoal()
 {
+  auto& executor = client_instance_->callback_executor;
   if(!goal_handle_)
   {
-    RCLCPP_WARN(logger(), "cancelGoal called on an empty goal_handle");
-    return;
+    if(future_goal_handle_.valid())
+    {
+      // Here the discussion is if we should block or put a timer for the waiting
+      auto ret =
+          executor.spin_until_future_complete(future_goal_handle_, server_timeout_);
+      if(ret != rclcpp::FutureReturnCode::SUCCESS)
+      {
+        // In that case the goal was not accepted or timed out so probably we should do nothing.
+        return;
+      }
+      else
+      {
+        goal_handle_ = future_goal_handle_.get();
+        future_goal_handle_ = {};
+      }
+    }
+    else
+    {
+      RCLCPP_WARN(logger(), "cancelGoal called on an empty goal_handle");
+      return;
+    }
   }
 
-  auto& executor = client_instance_->callback_executor;
   auto& action_client = client_instance_->action_client;
 
   auto future_result = action_client->async_get_result(goal_handle_);
