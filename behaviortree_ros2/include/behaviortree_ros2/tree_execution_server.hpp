@@ -123,6 +123,18 @@ protected:
     return std::nullopt;
   }
 
+protected:
+  /**
+   * @brief Method to register the trees and BT custom nodes.
+   * It will call registerNodesIntoFactory().
+   *
+   * This callback will invoked asynchronously when this rclcpp Node is attached
+   * to a rclcpp Executor.
+   * Alternatively, it can be called synchronously in the constructor of a
+   * __derived__ class of TreeExecutionServer.
+   */
+  void executeRegistration();
+
 private:
   struct Pimpl;
   std::unique_ptr<Pimpl> p_;

@@ -47,6 +47,9 @@ struct TreeExecutionServer::Pimpl
   std::string current_tree_name;
   std::shared_ptr<BT::Tree> tree;
   BT::Blackboard::Ptr global_blackboard;
+  bool factory_initialized_ = false;
+
+  rclcpp::WallTimer<rclcpp::VoidCallbackType>::SharedPtr single_shot_timer;
 
   rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& uuid,
                                           std::shared_ptr<const ExecuteTree::Goal> goal);
@@ -70,6 +73,22 @@ TreeExecutionServer::Pimpl::Pimpl(const rclcpp::NodeOptions& node_options)
 TreeExecutionServer::~TreeExecutionServer()
 {}
 
+void TreeExecutionServer::executeRegistration()
+{
+  // Before executing check if we have new Behaviors or Subtrees to reload
+  p_->factory.clearRegisteredBehaviorTrees();
+
+  p_->params = p_->param_listener->get_params();
+  // user defined method
+  registerNodesIntoFactory(p_->factory);
+  // load plugins from multiple directories
+  RegisterPlugins(p_->params, p_->factory, p_->node);
+  // load trees (XML) from multiple directories
+  RegisterBehaviorTrees(p_->params, p_->factory, p_->node);
+
+  p_->factory_initialized_ = true;
+}
+
 TreeExecutionServer::TreeExecutionServer(const rclcpp::NodeOptions& options)
   : p_(new Pimpl(options))
 {
@@ -89,9 +108,18 @@ TreeExecutionServer::TreeExecutionServer(const rclcpp::NodeOptions& options)
         handle_accepted(std::move(goal_handle));
       });
 
-  // register the users Plugins and BehaviorTree.xml files into the factory
-  RegisterBehaviorTrees(p_->params, p_->factory, p_->node);
-  registerNodesIntoFactory(p_->factory);
+  // we use a wall timer to run asynchronously executeRegistration();
+  rclcpp::VoidCallbackType callback = [this]() {
+    if(!p_->factory_initialized_)
+    {
+      executeRegistration();
+    }
+    // we must cancel the timer after the first execution
+    p_->single_shot_timer->cancel();
+  };
+
+  p_->single_shot_timer =
+      p_->node->create_wall_timer(std::chrono::milliseconds(1), callback);
 }
 
 rclcpp::node_interfaces::NodeBaseInterface::SharedPtr
@@ -151,9 +179,7 @@ void TreeExecutionServer::execute(
   // Before executing check if we have new Behaviors or Subtrees to reload
   if(p_->param_listener->is_old(p_->params))
   {
-    p_->params = p_->param_listener->get_params();
-    RegisterBehaviorTrees(p_->params, p_->factory, p_->node);
-    registerNodesIntoFactory(p_->factory);
+    executeRegistration();
   }
 
   // Loop until something happens with ROS or the node completes
