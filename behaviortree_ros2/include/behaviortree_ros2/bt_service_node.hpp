@@ -315,7 +315,7 @@ inline NodeStatus RosServiceNode<T>::tick()
   // service_name in the port didn't change.
   // otherwise, create a new client
   //Temporary workaround for threading issues - Greg
-  rclcpp::spin_some(node_);
+  //rclcpp::spin_some(node_);
   if(!srv_instance_ || (status() == NodeStatus::IDLE && service_name_should_be_checked_))
   {
     std::string service_name;
