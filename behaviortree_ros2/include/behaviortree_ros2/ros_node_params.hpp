@@ -24,7 +24,7 @@ namespace BT
 
 struct RosNodeParams
 {
-  std::shared_ptr<rclcpp::Node> nh;
+  std::weak_ptr<rclcpp::Node> nh;
 
   // This has different meaning based on the context:
   //
@@ -41,8 +41,15 @@ struct RosNodeParams
   // timeout used when detecting the server the first time
   std::chrono::milliseconds wait_for_server_timeout = std::chrono::milliseconds(500);
 
+  RosNodeParams() = default;
+  RosNodeParams(std::shared_ptr<rclcpp::Node> node) : nh(node)
+  {}
+  RosNodeParams(std::shared_ptr<rclcpp::Node> node, const std::string& port_name)
+    : nh(node), default_port_value(port_name)
+  {}
+
   // parameter only used by the subscriber
   rclcpp::QoS qos_profile=1;
 };
 
-}
+}  // namespace BT

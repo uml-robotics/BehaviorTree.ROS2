@@ -8,6 +8,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(btcpp_ros2_interfaces
+    "msg/NodeStatus.msg"
+    "action/ExecuteTree.action"
     "action/Sleep.action")
 
 ament_export_dependencies(rosidl_default_runtime)
