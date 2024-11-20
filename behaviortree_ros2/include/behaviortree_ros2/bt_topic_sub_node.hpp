@@ -166,7 +166,7 @@ private:
 //----------------------------------------------------------------
 template <class T>
 inline RosTopicSubNode<T>::SubscriberInstance::SubscriberInstance(
-    std::shared_ptr<rclcpp::Node> node, const std::string& topic_name)
+    std::shared_ptr<rclcpp::Node> node, const std::string& topic_name, const rclcpp::QoS& qos_profile)
 {
   // create a callback group for this particular instance
   callback_group =
